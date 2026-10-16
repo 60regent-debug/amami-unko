@@ -1,0 +1,86 @@
+{
+  "generated_at": "2026-10-16 11:03",
+  "items": [
+    {
+      "operator": "マルエーフェリー",
+      "ship": "フェリーあけぼの",
+      "ports": [
+        "名瀬港"
+      ],
+      "route": "鹿児島 - 名瀬 - 亀徳 - 和泊 - 与論 - 本部 - 那覇",
+      "label": "条件付運航",
+      "level": "caution",
+      "headline": "10月15日(木)下り便...条件付き運航",
+      "updated": "2026年10月16日",
+      "url": "https://www.aline-ferry.com/status"
+    },
+    {
+      "operator": "マルエーフェリー",
+      "ship": "フェリー波之上",
+      "ports": [
+        "名瀬港"
+      ],
+      "route": "鹿児島 - 名瀬 - 亀徳 - 和泊 - 与論 - 本部 - 那覇",
+      "label": "条件付運航",
+      "level": "caution",
+      "headline": "10/16(金)鹿児島新港発下り便...条件付き運航",
+      "updated": "2026年10月16日",
+      "url": "https://www.aline-ferry.com/status"
+    },
+    {
+      "operator": "奄美海運",
+      "ship": "フェリーあまみ",
+      "ports": [
+        "名瀬港",
+        "古仁屋港"
+      ],
+      "route": "鹿児島 - 喜界 - 名瀬 - 古仁屋 - 平土野",
+      "label": "欠航",
+      "level": "cancel",
+      "headline": "機関故障に伴う運休のご案内",
+      "updated": "2026年10月16日",
+      "url": "https://www.aline-ferry.com/status"
+    },
+    {
+      "operator": "奄美海運",
+      "ship": "フェリーきかい",
+      "ports": [
+        "名瀬港",
+        "古仁屋港"
+      ],
+      "route": "鹿児島 - 喜界 - 名瀬 - 古仁屋 - 平土野",
+      "label": "スケジュール変更",
+      "level": "caution",
+      "headline": "10月16日 鹿児島本港北埠頭8時25分入港予定です。 フェリーあまみ機関故障に伴う運航スケジュール変更",
+      "updated": "2026年10月16日",
+      "url": "https://www.aline-ferry.com/status"
+    },
+    {
+      "operator": "マリックスライン",
+      "ship": "",
+      "ports": [
+        "名瀬港"
+      ],
+      "route": "那覇 - 名瀬 - 鹿児島（上り）",
+      "label": "条件付運航",
+      "level": "caution",
+      "headline": "10/16 那覇港発 → 10/17 鹿児島新港 向け",
+      "updated": "",
+      "url": "https://marixline.com/service/upstream20261016/"
+    },
+    {
+      "operator": "瀬戸内町（フェリーかけろま・せとなみ）",
+      "ship": "",
+      "ports": [
+        "古仁屋港"
+      ],
+      "route": "古仁屋 - 瀬相・生間 ほか",
+      "label": "公式Xで確認",
+      "level": "unknown",
+      "headline": "自動取得は準備中（町の防災情報メールから読み取る予定）",
+      "updated": "",
+      "url": "https://x.com/st_liner_info"
+    }
+  ],
+  "errors": []
+}
