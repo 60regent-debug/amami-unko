@@ -304,6 +304,8 @@
   let data = null, current = "名瀬港";
   try { current = localStorage.getItem("port") || current; } catch (e) {}
 
+  const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : "#"; } catch (e) { return "#"; } };
+
   function item(it, port) {
     const name = it.ship || it.operator;
     const sub = it.ship ? it.operator : "";
@@ -319,7 +321,7 @@
         ${it.updated ? `<span class="upd">${esc(it.updated)} 更新</span>` : ""}
         <span class="actions">
           ${it.level !== "unknown" ? bellButton(keyOf(it)) : ""}
-          <a class="btn" href="${esc(it.url)}" target="_blank" rel="noopener">公式ページ →</a>
+          <a class="btn" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener">公式ページ →</a>
         </span>
       </div></li>`;
   }

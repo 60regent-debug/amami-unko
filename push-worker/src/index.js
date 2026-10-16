@@ -48,6 +48,15 @@ function parseAline(page) {
   return items;
 }
 
+// 読み取ったリンクは marixline.com の https だけ通す（それ以外は一覧ページ）
+function safeMarixUrl(href) {
+  try {
+    const u = new URL(unescapeHtml(href), MARIX_URL);
+    if (u.protocol === "https:" && (u.hostname === "marixline.com" || u.hostname.endsWith(".marixline.com"))) return u.href;
+  } catch {}
+  return MARIX_URL;
+}
+
 function parseMarix(page) {
   const items = [];
   const sec = page.match(/section__latest_status">([\s\S]*?)<\/section>/);
@@ -63,7 +72,7 @@ function parseMarix(page) {
         const label = exp ? clean(exp[1]) : "不明";
         const ports = [...a[2].matchAll(/<div class="port_information[^"]*">([\s\S]*?)<\/div>/g)]
           .map((x) => clean(x[1]).replace(/\d{4}年(\d{1,2})月(\d{1,2})日/g, "$1/$2"));
-        items.push({ id, operator: "マリックスライン", ship: "", ports: ["名瀬港"], route, label, level: levelOf(label), headline: ports.join(" → "), updated: "", url: a[1] });
+        items.push({ id, operator: "マリックスライン", ship: "", ports: ["名瀬港"], route, label, level: levelOf(label), headline: ports.join(" → "), updated: "", url: safeMarixUrl(a[1]) });
       }
     }
   }
