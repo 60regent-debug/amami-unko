@@ -80,6 +80,38 @@ function parseMarix(page) {
   return items;
 }
 
+// ── 奄美空港（公式「本日の運航状況」）──
+const AIRPORT_URL = "https://amami-airport.co.jp/flight/today";
+const AIRLINES = { jal_logo: ["JAL", "JAL・JAC"], peach_logo: ["MM", "Peach"], skymark_logo: ["BC", "スカイマーク"], ana_logo: ["NH", "ANA"] };
+
+function flightLevel(status, changed) {
+  if (/欠航/.test(status)) return "cancel";
+  if (changed || /遅|変更|未定|調査|条件|引き返|代替/.test(status)) return "caution";
+  return "normal";
+}
+
+function parseAirport(page) {
+  const out = {};
+  for (const [kind, id] of [["arrivals", "arrivals-japanese-full"], ["departures", "departures-japanese-full"]]) {
+    const m = page.match(new RegExp(`<tbody id="${id}">([\\s\\S]*?)</tbody>`));
+    out[kind] = [];
+    if (!m) continue;
+    for (const row of m[1].split(/<tr[^>]*>/).slice(1)) {
+      const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((x) => x[1]);
+      if (cells.length < 6) continue;
+      const logo = (cells[3].match(/icon\/([a-z_]+)\.png/) || [])[1] || "";
+      const [code, name] = AIRLINES[logo] || ["", "その他"];
+      const no = clean(cells[4]), status = clean(cells[5]) || "—", changed = clean(cells[1]);
+      out[kind].push({
+        id: `air-${kind === "arrivals" ? "a" : "d"}-${code}${no}`,
+        time: clean(cells[0]), changed, place: clean(cells[2]), airline: name, flight: (code ? code + " " : "") + no,
+        status, level: flightLevel(status, changed),
+      });
+    }
+  }
+  return out;
+}
+
 function jstNow() {
   const d = new Date(Date.now() + 9 * 3600 * 1000);
   return d.toISOString().slice(0, 16).replace("T", " ");
@@ -94,8 +126,13 @@ async function scrapeAll() {
       items.push(...got);
     } catch (e) { errors.push(`${name}: ${e.message}`); }
   }
+  let flights = { arrivals: [], departures: [], url: AIRPORT_URL };
+  try {
+    flights = { ...parseAirport(await getPage(AIRPORT_URL)), url: AIRPORT_URL };
+    if (!flights.arrivals.length && !flights.departures.length) errors.push("奄美空港: 読み取れた便が0件（ページの形が変わった可能性）");
+  } catch (e) { errors.push(`奄美空港: ${e.message}`); }
   items.push({ id: "setouchi", operator: "瀬戸内町（フェリーかけろま・せとなみ）", ship: "", ports: ["古仁屋港"], route: "古仁屋 - 瀬相・生間 ほか", label: "公式Xで確認", level: "unknown", headline: "自動取得は準備中（町の防災情報メールから読み取る予定）", updated: "", url: SETOUCHI_X_URL });
-  return { generated_at: jstNow(), items, errors };
+  return { generated_at: jstNow(), items, flights, errors };
 }
 
 // マリックスは上り・下りをまとめて1つの通知対象にする
@@ -218,8 +255,14 @@ async function checkAndNotify(env) {
     text[k] = (text[k] ? text[k] + "\n" : "") + `${name}：${it.label}${it.headline ? "（" + it.headline + "）" : ""}`;
   }
 
+  for (const f of [...(data.flights?.arrivals || []), ...(data.flights?.departures || [])]) {
+    now[f.id] = [f.level, f.level === "normal" ? "" : f.status, f.changed].join("/");
+    const dir = f.id.startsWith("air-a") ? `${f.place}発` : `${f.place}行き`;
+    text[f.id] = `✈️ ${f.airline} ${f.flight}（${f.time} ${dir}）：${f.level === "normal" ? "通常どおり" : f.status}${f.changed ? `・変更後 ${f.changed}` : ""}`;
+  }
+
   const prev = JSON.parse((await env.SUBS.get("state")) || "null");
-  const changed = prev ? Object.keys(now).filter((k) => prev[k] !== now[k]) : [];
+  const changed = prev ? Object.keys(now).filter((k) => k in prev && prev[k] !== now[k]) : [];
   if (JSON.stringify(prev) !== JSON.stringify(now)) await env.SUBS.put("state", JSON.stringify(now));
   if (!changed.length) return;
 

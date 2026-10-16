@@ -146,6 +146,19 @@
   .s-stop { --c: var(--stop); --bg: var(--stop-bg); }
   .s-none { --c: var(--none); --bg: var(--none-bg); }
 
+  .fl-tabs { display: flex; gap: 8px; margin: 14px 0 4px; }
+  .fl-tabs button { flex: 1; font: inherit; font-size: 18px; font-weight: 700; padding: 10px 0; border-radius: 10px; cursor: pointer;
+    border: 1.5px solid var(--rule); background: var(--paper); color: var(--ink-2); }
+  .fl-tabs button[aria-pressed="true"] { background: var(--sea-1); border-color: var(--sea-1); color: #fff; }
+  .flight { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 14px 4px; border-bottom: 1px solid var(--rule); }
+  .flight .when { font-size: 24px; font-weight: 900; letter-spacing: .02em; }
+  .flight .when s { font-size: 17px; font-weight: 500; color: var(--ink-3); margin-right: 6px; }
+  .flight .where { font-size: 20px; font-weight: 700; margin-left: 6px; }
+  .flight .who { font-size: 16px; color: var(--ink-3); }
+  .flight .label { justify-self: end; }
+  .flight .bell { grid-column: 2; justify-self: end; font-size: 15px; padding: 7px 10px; }
+  .flight.done { opacity: .55; }
+  .more-btn { margin-top: 12px; width: 100%; justify-content: center; }
   .soon {
     margin-top: 14px; padding: 18px; border-radius: 14px; border: 1px dashed var(--rule);
     color: var(--ink-2); font-size: 18px; background: var(--paper);
@@ -189,8 +202,8 @@
   <div id="ships"></div>
 
   <section class="sec">
-    <div class="sec-head"><h2>奄美空港<small>AIRPORT</small></h2></div>
-    <div class="soon"><b>準備中</b>JAC・JAL・ANA・Peach の発着状況をここに表示します。</div>
+    <div class="sec-head"><h2>✈️ 奄美空港<small>AIRPORT</small></h2></div>
+    <div id="flights"><div class="soon">読み込み中…</div></div>
   </section>
 
   <section class="sec">
@@ -339,12 +352,55 @@
     </section>`;
   }
 
+  let flKind = "departures", showDone = false;
+  try { flKind = localStorage.getItem("flKind") || flKind; } catch (e) {}
+
+  function flightRow(f) {
+    const done = /済み/.test(f.status);
+    const dir = flKind === "arrivals" ? `${esc(f.place)}から` : `${esc(f.place)}行き`;
+    const when = f.changed ? `<s>${esc(f.time)}</s>${esc(f.changed)}` : esc(f.time);
+    return `<div class="flight ${CLS[f.level] || "s-none"}${done ? " done" : ""}">
+      <div><span class="when">${when}</span><span class="where">${dir}</span><div class="who">${esc(f.airline)}　${esc(f.flight)}便</div></div>
+      <span class="label">${esc(f.status)}</span>
+      ${done ? "" : `<span></span>${bellButton(f.id)}`}
+    </div>`;
+  }
+
+  function renderFlights() {
+    const el = document.getElementById("flights");
+    const fl = data && data.flights;
+    if (!fl || (!fl.arrivals.length && !fl.departures.length)) {
+      el.innerHTML = `<div class="soon"><b>表示できる便がありません</b><a class="btn" href="https://amami-airport.co.jp/flight/today" target="_blank" rel="noopener">奄美空港の公式ページ →</a></div>`;
+      return;
+    }
+    const list = fl[flKind] || [];
+    const isDone = f => /済み/.test(f.status);
+    const rest = list.filter(f => !isDone(f)), done = list.filter(isDone);
+    const n = l => rest.filter(f => f.level === l).length;
+    el.innerHTML = `
+      <div class="fl-tabs">
+        <button data-kind="departures" aria-pressed="${flKind === "departures"}">出発便</button>
+        <button data-kind="arrivals" aria-pressed="${flKind === "arrivals"}">到着便</button>
+      </div>
+      <div class="tally" style="margin:8px 4px">${n("cancel") ? `<span class="t-stop">欠航 ${n("cancel")}</span>` : ""}${n("caution") ? `<span class="t-warn">変更 ${n("caution")}</span>` : ""}</div>
+      ${rest.length ? rest.map(flightRow).join("") : `<div class="soon">今日のこれからの便はありません</div>`}
+      ${done.length ? (showDone ? done.map(flightRow).join("") : "") +
+        `<button class="btn more-btn" id="toggle-done">${showDone ? "終わった便をかくす" : `終わった便も見る（${done.length}便）`}</button>` : ""}
+      <a class="btn more-btn" href="${esc(safeUrl(fl.url))}" target="_blank" rel="noopener">奄美空港の公式ページ →</a>`;
+    el.querySelectorAll(".fl-tabs button").forEach(b => b.onclick = () => {
+      flKind = b.dataset.kind; try { localStorage.setItem("flKind", flKind); } catch (e) {} renderFlights();
+    });
+    const t = document.getElementById("toggle-done");
+    if (t) t.onclick = () => { showDone = !showDone; renderFlights(); };
+  }
+
   function render() {
     document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.port === current)));
     if (!data) return;
     const shown = current === "all" ? PORTS : PORTS.filter(p => p[0] === current);
     document.getElementById("ships").innerHTML =
       shown.map(p => section(p, data.items.filter(i => (i.ports || []).includes(p[0])))).join("");
+    renderFlights();
   }
 
   document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
