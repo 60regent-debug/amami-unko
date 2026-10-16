@@ -115,9 +115,8 @@
   .list { list-style: none; margin: 0; padding: 0; }
   .item {
     display: grid; grid-template-columns: 52px 1fr; gap: 4px 14px; align-items: start;
-    padding: 18px 4px; border-bottom: 1px solid var(--rule); text-decoration: none;
+    padding: 18px 4px; border-bottom: 1px solid var(--rule);
   }
-  .item:active { background: color-mix(in srgb, var(--paper) 70%, transparent); }
   .mark {
     grid-row: span 2; width: 52px; height: 52px; border-radius: 50%;
     display: grid; place-items: center; color: var(--c); background: var(--bg);
@@ -129,7 +128,19 @@
   .route { grid-column: 2; font-size: 17px; font-weight: 500; color: var(--ink-3); letter-spacing: .02em; margin-top: 4px; }
   .route b { color: var(--ink); font-weight: 700; }
   .note-line { grid-column: 2; font-size: 19px; font-weight: 500; color: var(--ink); line-height: 1.6; }
-  .src { grid-column: 2; font-size: 17px; font-weight: 700; color: var(--link); margin-top: 4px; letter-spacing: .02em; }
+  .actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .btn {
+    font: inherit; font-size: 17px; font-weight: 700; letter-spacing: .02em; line-height: 1.2;
+    display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 10px;
+    text-decoration: none; cursor: pointer; border: 1.5px solid var(--rule); background: var(--paper); color: var(--link);
+  }
+  .btn:active { opacity: .7; }
+  .bell[aria-pressed="true"] { background: var(--doro); border-color: var(--doro); color: var(--sand); }
+  .upd { grid-column: 2; font-size: 15px; color: var(--ink-3); margin-top: 2px; }
+  .notify-box { margin-top: 14px; padding: 18px; border-radius: 14px; border: 1px solid var(--rule); background: var(--paper); font-size: 18px; color: var(--ink-2); }
+  .notify-box b { color: var(--ink); }
+  .notify-box .btn { margin-top: 12px; }
+  .notify-box ol { margin: 8px 0 0; padding-left: 1.4em; }
   .s-ok   { --c: var(--ok);   --bg: var(--ok-bg); }
   .s-warn { --c: var(--warn); --bg: var(--warn-bg); }
   .s-stop { --c: var(--stop); --bg: var(--stop-bg); }
@@ -184,7 +195,7 @@
 
   <section class="sec">
     <div class="sec-head"><h2>お知らせ<small>NOTIFY</small></h2></div>
-    <div class="soon"><b>LINEで通知（準備中）</b>乗る便を選んでおくと、欠航・条件付になったときにLINEでお知らせします。</div>
+    <div class="notify-box" id="notify-box">読み込み中…</div>
   </section>
 
   <div id="errors"></div>
@@ -192,7 +203,7 @@
 
 <footer>
   <div class="brand">奄美 運航情報</div>
-  各社の公式ページをもとに、運航状況の区分だけを表示しています。寄港地の変更や時刻など詳しい内容は、各便をタップして必ず公式ページでご確認ください。試作版のため、表示が遅れたり誤ったりする場合があります。
+  各社の公式ページをもとに、運航状況の区分だけを表示しています。寄港地の変更や時刻など詳しい内容は、各便の「公式ページ」から必ずご確認ください。試作版のため、表示が遅れたり誤ったりする場合があります。
 </footer>
 
 <script>
@@ -205,6 +216,91 @@
     cancel:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
     unknown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg>',
   };
+  // ── 通知 ──
+  const PUSH_API = "https://amami-unko-push.60regent.workers.dev";
+  const keyOf = it => (it.id || "").startsWith("marix") ? "marix" : it.id;
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const pushOK = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  let targets = [];
+  try { targets = JSON.parse(localStorage.getItem("targets") || "[]"); } catch (e) {}
+  let swReg = null;
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").then(r => { swReg = r; }).catch(() => {});
+
+  function bellButton(k) {
+    const on = targets.includes(k);
+    return `<button class="btn bell" data-key="${esc(k)}" aria-pressed="${on}">${on ? "🔔 通知中" : "🔕 通知する"}</button>`;
+  }
+
+  const b64ToBytes = b => {
+    const s = atob(b.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((b.length + 3) % 4));
+    return Uint8Array.from(s, c => c.charCodeAt(0));
+  };
+
+  async function getSubscription(create) {
+    const reg = swReg || await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub && create) {
+      const { publicKey } = await (await fetch(PUSH_API + "/vapid")).json();
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
+    }
+    return sub;
+  }
+
+  const post = (path, body) => fetch(PUSH_API + path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }).then(r => r.json());
+
+  async function toggle(k) {
+    if (!pushOK || (isIOS && !standalone)) { notifyBox("guide"); document.getElementById("notify-box").scrollIntoView({ behavior: "smooth" }); return; }
+    if (Notification.permission !== "granted") {
+      const p = await Notification.requestPermission();
+      if (p !== "granted") { notifyBox("denied"); return; }
+    }
+    const next = targets.includes(k) ? targets.filter(t => t !== k) : [...targets, k];
+    try {
+      const sub = await getSubscription(next.length > 0);
+      if (sub) await post("/subscribe", { subscription: sub.toJSON(), targets: next });
+      targets = next;
+      try { localStorage.setItem("targets", JSON.stringify(targets)); } catch (e) {}
+      render(); notifyBox();
+    } catch (e) {
+      notifyBox("error");
+    }
+  }
+
+  async function sendTest() {
+    try {
+      const sub = await getSubscription(false);
+      if (!sub) { notifyBox(); return; }
+      const r = await post("/test", { subscription: sub.toJSON() });
+      document.getElementById("test-result").textContent = r.ok ? "送りました。数秒で届きます。" : "送れませんでした。";
+    } catch (e) { document.getElementById("test-result").textContent = "送れませんでした。"; }
+  }
+
+  function notifyBox(mode) {
+    const el = document.getElementById("notify-box");
+    if (mode === "guide" || (!mode && (!pushOK || (isIOS && !standalone)))) {
+      el.innerHTML = `<b>通知を受け取るには、先にホーム画面に追加してください。</b>
+        <ol><li>Safariの下にある共有ボタン（□に↑）を押す</li><li>「ホーム画面に追加」を押す</li><li>ホーム画面のアイコンから開き直し、便の「🔕 通知する」を押す</li></ol>`;
+    } else if (mode === "denied" || (pushOK && Notification.permission === "denied")) {
+      el.innerHTML = `<b>通知が許可されていません。</b><br>iPhoneの「設定」→「通知」→「奄美運航」で通知をオンにしてください。`;
+    } else if (mode === "error") {
+      el.innerHTML = `<b>うまく設定できませんでした。</b><br>電波の良い場所で、もう一度お試しください。`;
+    } else if (targets.length) {
+      el.innerHTML = `<b>🔔 ${targets.length}件の便を通知中です。</b><br>運航状況が変わると、この端末にお知らせが届きます。やめるときは、便の「🔔 通知中」を押してください。
+        <div><button class="btn" id="test-btn">テスト通知を送る</button> <span id="test-result"></span></div>`;
+      document.getElementById("test-btn").onclick = sendTest;
+    } else {
+      el.innerHTML = `<b>乗る便の「🔕 通知する」を押してください。</b><br>欠航や条件付など、運航状況が変わったときにこの端末へお知らせが届きます。アカウント登録は要りません。`;
+    }
+  }
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest(".bell");
+    if (b) toggle(b.dataset.key);
+  });
+
   let data = null, current = "名瀬港";
   try { current = localStorage.getItem("port") || current; } catch (e) {}
 
@@ -214,14 +310,18 @@
     const key = port === "all" ? null : port.replace("港", "");
     const route = key ? esc(it.route).split(key).join(`<b>${key}</b>`) : esc(it.route);
     return `
-      <li><a class="item ${CLS[it.level] || "s-none"}" href="${esc(it.url)}" target="_blank" rel="noopener">
+      <li><div class="item ${CLS[it.level] || "s-none"}">
         <span class="mark" aria-hidden="true">${ICON[it.level] || ICON.unknown}</span>
         <span class="label">${esc(it.label)}</span>
         <span class="ship">${esc(name)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>
         <span class="route">${route}</span>
         ${it.headline ? `<span class="note-line">${esc(it.headline)}</span>` : ""}
-        <span class="src">公式ページで確認 →${it.updated ? `　${esc(it.updated)} 更新` : ""}</span>
-      </a></li>`;
+        ${it.updated ? `<span class="upd">${esc(it.updated)} 更新</span>` : ""}
+        <span class="actions">
+          ${it.level !== "unknown" ? bellButton(keyOf(it)) : ""}
+          <a class="btn" href="${esc(it.url)}" target="_blank" rel="noopener">公式ページ →</a>
+        </span>
+      </div></li>`;
   }
 
   function section([port, en], items) {
@@ -251,6 +351,7 @@
     render();
   }));
   render();
+  notifyBox();
 
   fetch("status.json?" + Date.now())
     .then(r => r.json())

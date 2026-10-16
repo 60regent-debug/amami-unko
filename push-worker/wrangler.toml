@@ -1,0 +1,14 @@
+name = "amami-unko-push"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+VAPID_SUBJECT = "https://60regent-debug.github.io/amami-unko/"
+
+# 届け先と前回の状態を保存
+[[kv_namespaces]]
+binding = "SUBS"
+id = "a0d29e91ec3c486eba010189bfada586"

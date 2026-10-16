@@ -1,7 +1,8 @@
 {
-  "generated_at": "2026-10-16 11:03",
+  "generated_at": "2026-10-16 11:56",
   "items": [
     {
+      "id": "aline-フェリーあけぼの",
       "operator": "マルエーフェリー",
       "ship": "フェリーあけぼの",
       "ports": [
@@ -15,6 +16,7 @@
       "url": "https://www.aline-ferry.com/status"
     },
     {
+      "id": "aline-フェリー波之上",
       "operator": "マルエーフェリー",
       "ship": "フェリー波之上",
       "ports": [
@@ -28,6 +30,7 @@
       "url": "https://www.aline-ferry.com/status"
     },
     {
+      "id": "aline-フェリーあまみ",
       "operator": "奄美海運",
       "ship": "フェリーあまみ",
       "ports": [
@@ -42,6 +45,7 @@
       "url": "https://www.aline-ferry.com/status"
     },
     {
+      "id": "aline-フェリーきかい",
       "operator": "奄美海運",
       "ship": "フェリーきかい",
       "ports": [
@@ -56,6 +60,7 @@
       "url": "https://www.aline-ferry.com/status"
     },
     {
+      "id": "marix-up",
       "operator": "マリックスライン",
       "ship": "",
       "ports": [
@@ -69,6 +74,7 @@
       "url": "https://marixline.com/service/upstream20261016/"
     },
     {
+      "id": "setouchi",
       "operator": "瀬戸内町（フェリーかけろま・せとなみ）",
       "ship": "",
       "ports": [

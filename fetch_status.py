@@ -76,6 +76,7 @@ def parse_aline(page):
         h4 = re.search(r"<h4>(.*?)</h4>", block, re.S)
         upd = re.search(r'<time datetime="([^"]+)"', block)
         items.append({
+            "id": "aline-" + ship,
             "operator": ALINE_PASSENGER_SHIPS[ship],
             "ship": ship,
             "ports": SHIP_PORTS.get(ship, ["名瀬港"]),
@@ -104,6 +105,7 @@ def parse_marix(page):
             ports = [clean(x) for x in re.findall(r'<div class="port_information[^"]*">(.*?)</div>', body, re.S)]
             ports = [re.sub(r"\d{4}年(\d{1,2})月(\d{1,2})日", r"\1/\2", x) for x in ports]
             items.append({
+                "id": "marix-" + ("down" if cls.startswith("down") else "up"),
                 "operator": "マリックスライン",
                 "ship": "",
                 "ports": ["名瀬港"],
@@ -116,7 +118,7 @@ def parse_marix(page):
             })
     if not items:
         items.append({
-            "operator": "マリックスライン", "ship": "", "ports": ["名瀬港"], "route": "鹿児島 - 奄美群島 - 那覇",
+            "id": "marix-none", "operator": "マリックスライン", "ship": "", "ports": ["名瀬港"], "route": "鹿児島 - 奄美群島 - 那覇",
             "label": "掲載なし", "level": "unknown",
             "headline": "最新の運航状況に掲載されている便がありません", "updated": "", "url": MARIX_URL,
         })
@@ -126,6 +128,7 @@ def parse_marix(page):
 def setouchi_placeholder():
     # 町のWebページに運航状況は載っておらず、速報は公式Xと防災メールのみ。自動取得は次の段階で対応
     return [{
+        "id": "setouchi",
         "operator": "瀬戸内町（フェリーかけろま・せとなみ）",
         "ship": "",
         "ports": ["古仁屋港"],

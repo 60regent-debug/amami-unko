@@ -29,7 +29,7 @@ jobs:
       - name: 公開するファイルをまとめる
         run: |
           mkdir _site
-          cp index.html status.json robots.txt manifest.json apple-touch-icon.png icon-192.png icon-512.png _site/
+          cp index.html status.json robots.txt manifest.json apple-touch-icon.png icon-192.png icon-512.png sw.js _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
