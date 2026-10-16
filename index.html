@@ -353,8 +353,11 @@
   render();
   notifyBox();
 
-  fetch("status.json?" + Date.now())
-    .then(r => r.json())
+  // 最新の情報は Cloudflare（15分おきに更新）から。読めないときは公開時点の status.json を使う
+  fetch(PUSH_API + "/status.json")
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(d => (d.items && d.items.length ? d : Promise.reject()))
+    .catch(() => fetch("status.json?" + Date.now()).then(r => r.json()))
     .then(d => {
       data = d;
       const stamp = document.getElementById("stamp");

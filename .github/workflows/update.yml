@@ -1,8 +1,6 @@
-name: 運航情報の更新と公開
+name: 画面の公開（運航情報の定期更新はCloudflare Workerが担当）
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"   # 15分おき（GitHubの混雑で数分遅れることがある）
   workflow_dispatch:          # 手動実行
   push:
     branches: [main]
