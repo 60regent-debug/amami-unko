@@ -83,7 +83,7 @@ def parse_aline(page):
             "route": route,
             "label": label,
             "level": level_of(label),
-            "headline": clean(h4.group(1)).lstrip("■") if h4 else "",
+            "headline": "\n".join(x for x in re.split(r"\s*■\s*", clean(h4.group(1))) if x) if h4 else "",
             "updated": upd.group(1) if upd else "",
             "url": ALINE_URL,
         })

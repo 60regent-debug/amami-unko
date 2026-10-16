@@ -15,7 +15,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
     --sea-0: #061f36; --sea-1: #0a3558; --sea-2: #11568a; --sea-3: #3b8fc7;
@@ -25,8 +25,8 @@
     --warn: #864c00; --warn-bg: #fae7c4;
     --stop: #9c221b; --stop-bg: #f6d9d5;
     --none: #4f4137; --none-bg: #e9e0d4;
-    --serif: "Shippori Mincho B1", "Hiragino Mincho ProN", serif;
-    --sans: "Zen Kaku Gothic New", "Hiragino Sans", -apple-system, sans-serif;
+    --serif: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+    --sans: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", -apple-system, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -63,7 +63,7 @@
     opacity: .85; text-transform: uppercase;
   }
   .hero h1 {
-    font-family: var(--serif); font-weight: 800; font-size: 38px; line-height: 1.25;
+    font-family: var(--serif); font-weight: 900; font-size: 38px; line-height: 1.25;
     letter-spacing: .12em; margin: 10px 0 0;
   }
   .hero .lead { font-size: 18px; font-weight: 500; opacity: .95; margin-top: 8px; letter-spacing: .08em; }
@@ -103,7 +103,7 @@
   /* ── セクション見出し ── */
   .sec { margin-top: 26px; }
   .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px 12px; border-bottom: 1px solid var(--rule); }
-  .sec-head h2 { margin: 0; font-family: var(--serif); font-weight: 800; font-size: 29px; letter-spacing: .1em; }
+  .sec-head h2 { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 29px; letter-spacing: .1em; }
   .sec-head h2 small { font-family: var(--sans); font-weight: 700; font-size: 14px; letter-spacing: .18em; color: var(--ink-3); margin-left: 10px; }
   .tally { display: flex; gap: 6px; font-size: 17px; font-weight: 700; }
   .tally span { padding: 3px 10px; border-radius: 999px; }
@@ -122,12 +122,12 @@
     display: grid; place-items: center; color: var(--c); background: var(--bg);
   }
   .mark svg { width: 28px; height: 28px; }
-  .ship { font-weight: 700; font-size: 24px; letter-spacing: .04em; line-height: 1.35; }
+  .ship { font-weight: 900; font-size: 24px; letter-spacing: .04em; line-height: 1.35; }
   .ship small { display: block; font-weight: 500; font-size: 17px; color: var(--ink-3); letter-spacing: .04em; margin-top: 2px; }
   .label { font-weight: 700; font-size: 18px; color: var(--c); background: var(--bg); white-space: nowrap; padding: 3px 10px; border-radius: 8px; letter-spacing: .04em; justify-self: start; }
   .route { grid-column: 2; font-size: 17px; font-weight: 500; color: var(--ink-3); letter-spacing: .02em; margin-top: 4px; }
   .route b { color: var(--ink); font-weight: 700; }
-  .note-line { grid-column: 2; font-size: 19px; font-weight: 500; color: var(--ink); line-height: 1.6; }
+  .note-line { grid-column: 2; font-size: 19px; font-weight: 500; color: var(--ink); line-height: 1.6; white-space: pre-line; }
   .actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .btn {
     font: inherit; font-size: 17px; font-weight: 700; letter-spacing: .02em; line-height: 1.2;

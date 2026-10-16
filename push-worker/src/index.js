@@ -42,7 +42,7 @@ function parseAline(page) {
     items.push({
       id: "aline-" + ship, operator: ALINE_SHIPS[ship], ship, ports: SHIP_PORTS[ship] || ["名瀬港"],
       route: clean(m[2]), label, level: levelOf(label),
-      headline: h4 ? clean(h4[1]).replace(/^■/, "") : "", updated: upd ? upd[1] : "", url: ALINE_URL,
+      headline: h4 ? clean(h4[1]).split(/\s*■\s*/).filter(Boolean).join("\n") : "", updated: upd ? upd[1] : "", url: ALINE_URL,
     });
   }
   return items;
