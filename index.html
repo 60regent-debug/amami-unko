@@ -17,29 +17,30 @@
   :root {
     --sea-0: #061f36; --sea-1: #0a3558; --sea-2: #11568a; --sea-3: #3b8fc7;
     --doro: #3a2a20; --doro-2: #6e5646; --sand: #f4efe6; --paper: #fffcf6;
-    --ink: #241a13; --ink-2: #6f5f53; --ink-3: #a3958a; --rule: #e7ded2;
-    --ok: #2f7d55;   --ok-bg: #e4f1ea;
-    --warn: #a2610a; --warn-bg: #fbeed6;
-    --stop: #b0322a; --stop-bg: #f8e1de;
-    --none: #7b6c60; --none-bg: #eee7dd;
+    --link: #0d4b7a; --ink: #1c140e; --ink-2: #3f3229; --ink-3: #5a4b40; --rule: #e7ded2;
+    --ok: #1f6a42;   --ok-bg: #dcefe3;
+    --warn: #864c00; --warn-bg: #fae7c4;
+    --stop: #9c221b; --stop-bg: #f6d9d5;
+    --none: #4f4137; --none-bg: #e9e0d4;
     --serif: "Shippori Mincho B1", "Hiragino Mincho ProN", serif;
     --sans: "Zen Kaku Gothic New", "Hiragino Sans", -apple-system, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --sand: #120d0a; --paper: #1d1612; --ink: #f2ebe2; --ink-2: #bcab9d; --ink-3: #85766a; --rule: #33281f;
+      --sand: #120d0a; --paper: #1d1612; --ink: #faf5ee; --ink-2: #e2d6ca; --ink-3: #cbbcae; --rule: #33281f;
       --doro: #d9c4ae; --doro-2: #bfa891;
       --ok: #7fd2a4;   --ok-bg: #173126;
       --warn: #f0bb62; --warn-bg: #362812;
       --stop: #ff948a; --stop-bg: #3b1c18;
-      --none: #b5a698; --none-bg: #2a211b;
+      --none: #d8cabc; --none-bg: #2a211b;
+      --link: #8cc8f0;
     }
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--sand); color: var(--ink);
-    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    font-family: var(--sans); font-size: 18px; font-weight: 500; line-height: 1.65;
     font-feature-settings: "palt"; letter-spacing: .02em;
     -webkit-font-smoothing: antialiased;
   }
@@ -55,17 +56,17 @@
   }
   .hero .inner { position: relative; z-index: 2; max-width: 560px; margin: 0 auto; }
   .eyebrow {
-    font-family: var(--sans); font-weight: 500; font-size: 11px; letter-spacing: .32em;
-    opacity: .7; text-transform: uppercase;
+    font-family: var(--sans); font-weight: 700; font-size: 12px; letter-spacing: .26em;
+    opacity: .85; text-transform: uppercase;
   }
   .hero h1 {
-    font-family: var(--serif); font-weight: 800; font-size: 34px; line-height: 1.25;
+    font-family: var(--serif); font-weight: 800; font-size: 36px; line-height: 1.25;
     letter-spacing: .12em; margin: 10px 0 0;
   }
-  .hero .lead { font-size: 13px; opacity: .78; margin-top: 8px; letter-spacing: .08em; }
+  .hero .lead { font-size: 16px; font-weight: 500; opacity: .95; margin-top: 8px; letter-spacing: .08em; }
   .stamp {
     display: inline-flex; align-items: center; gap: 8px; margin-top: 22px;
-    font-size: 12px; letter-spacing: .06em; opacity: .9;
+    font-size: 16px; font-weight: 700; letter-spacing: .04em;
   }
   .stamp::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #8fe3b4; box-shadow: 0 0 0 4px rgba(143,227,180,.18); }
   .stamp.stale::before { background: #f0bb62; box-shadow: 0 0 0 4px rgba(240,187,98,.18); }
@@ -87,9 +88,9 @@
     box-shadow: 0 6px 20px -10px rgba(36,26,19,.35);
   }
   .seg button {
-    font: inherit; font-weight: 700; font-size: 14px; letter-spacing: .1em;
+    font: inherit; font-weight: 700; font-size: 17px; letter-spacing: .08em;
     border: 0; background: transparent; color: var(--ink-2);
-    padding: 10px 0; border-radius: 10px; cursor: pointer;
+    padding: 12px 0; border-radius: 10px; cursor: pointer;
     transition: background .2s, color .2s;
   }
   .seg button[aria-pressed="true"] { background: var(--doro); color: var(--sand); }
@@ -99,10 +100,10 @@
   /* ── セクション見出し ── */
   .sec { margin-top: 26px; }
   .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px 12px; border-bottom: 1px solid var(--rule); }
-  .sec-head h2 { margin: 0; font-family: var(--serif); font-weight: 700; font-size: 22px; letter-spacing: .14em; }
-  .sec-head h2 small { font-family: var(--sans); font-weight: 500; font-size: 11px; letter-spacing: .28em; color: var(--ink-3); margin-left: 10px; }
-  .tally { display: flex; gap: 6px; font-size: 12px; font-weight: 700; }
-  .tally span { padding: 2px 8px; border-radius: 999px; }
+  .sec-head h2 { margin: 0; font-family: var(--serif); font-weight: 800; font-size: 26px; letter-spacing: .12em; }
+  .sec-head h2 small { font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: .2em; color: var(--ink-3); margin-left: 10px; }
+  .tally { display: flex; gap: 6px; font-size: 15px; font-weight: 700; }
+  .tally span { padding: 3px 10px; border-radius: 999px; }
   .tally .t-stop { color: var(--stop); background: var(--stop-bg); }
   .tally .t-warn { color: var(--warn); background: var(--warn-bg); }
   .tally .t-ok { color: var(--ok); background: var(--ok-bg); }
@@ -110,22 +111,22 @@
   /* ── 便のリスト ── */
   .list { list-style: none; margin: 0; padding: 0; }
   .item {
-    display: grid; grid-template-columns: 44px 1fr auto; gap: 4px 14px; align-items: start;
+    display: grid; grid-template-columns: 48px 1fr; gap: 4px 14px; align-items: start;
     padding: 18px 4px; border-bottom: 1px solid var(--rule); text-decoration: none;
   }
   .item:active { background: color-mix(in srgb, var(--paper) 70%, transparent); }
   .mark {
-    grid-row: span 3; width: 44px; height: 44px; border-radius: 50%;
+    grid-row: span 2; width: 48px; height: 48px; border-radius: 50%;
     display: grid; place-items: center; color: var(--c); background: var(--bg);
   }
-  .mark svg { width: 22px; height: 22px; }
-  .ship { font-weight: 700; font-size: 17px; letter-spacing: .06em; line-height: 1.4; }
-  .ship small { display: block; font-weight: 400; font-size: 12px; color: var(--ink-3); letter-spacing: .08em; }
-  .label { font-weight: 700; font-size: 13px; color: var(--c); white-space: nowrap; padding-top: 2px; letter-spacing: .08em; }
-  .route { grid-column: 2 / 4; font-size: 12px; color: var(--ink-3); letter-spacing: .04em; }
+  .mark svg { width: 26px; height: 26px; }
+  .ship { font-weight: 700; font-size: 21px; letter-spacing: .04em; line-height: 1.35; }
+  .ship small { display: block; font-weight: 500; font-size: 15px; color: var(--ink-3); letter-spacing: .04em; margin-top: 2px; }
+  .label { font-weight: 700; font-size: 16px; color: var(--c); background: var(--bg); white-space: nowrap; padding: 3px 10px; border-radius: 8px; letter-spacing: .04em; justify-self: start; }
+  .route { grid-column: 2; font-size: 15px; font-weight: 500; color: var(--ink-3); letter-spacing: .02em; margin-top: 4px; }
   .route b { color: var(--ink); font-weight: 700; }
-  .note-line { grid-column: 2 / 4; font-size: 14px; color: var(--ink-2); line-height: 1.55; }
-  .src { grid-column: 2 / 4; font-size: 12px; color: var(--sea-3); margin-top: 2px; letter-spacing: .06em; }
+  .note-line { grid-column: 2; font-size: 17px; font-weight: 500; color: var(--ink); line-height: 1.6; }
+  .src { grid-column: 2; font-size: 15px; font-weight: 700; color: var(--link); margin-top: 4px; letter-spacing: .02em; }
   .s-ok   { --c: var(--ok);   --bg: var(--ok-bg); }
   .s-warn { --c: var(--warn); --bg: var(--warn-bg); }
   .s-stop { --c: var(--stop); --bg: var(--stop-bg); }
@@ -133,13 +134,13 @@
 
   .soon {
     margin-top: 14px; padding: 18px; border-radius: 14px; border: 1px dashed var(--rule);
-    color: var(--ink-2); font-size: 14px; background: var(--paper);
+    color: var(--ink-2); font-size: 16px; background: var(--paper);
   }
-  .soon b { display: block; font-family: var(--serif); font-size: 15px; color: var(--ink); letter-spacing: .1em; margin-bottom: 2px; }
+  .soon b { display: block; font-family: var(--serif); font-size: 18px; color: var(--ink); letter-spacing: .1em; margin-bottom: 2px; }
 
-  .error { margin-top: 16px; padding: 12px 14px; border-radius: 10px; color: var(--stop); background: var(--stop-bg); font-size: 14px; }
-  footer { max-width: 560px; margin: 0 auto; padding: 8px 20px calc(env(safe-area-inset-bottom) + 36px); font-size: 11px; color: var(--ink-3); line-height: 1.8; letter-spacing: .04em; }
-  footer .brand { font-family: var(--serif); font-size: 13px; color: var(--ink-2); letter-spacing: .2em; margin-bottom: 6px; }
+  .error { margin-top: 16px; padding: 12px 14px; border-radius: 10px; color: var(--stop); background: var(--stop-bg); font-size: 16px; font-weight: 700; }
+  footer { max-width: 560px; margin: 0 auto; padding: 8px 20px calc(env(safe-area-inset-bottom) + 36px); font-size: 14px; color: var(--ink-3); line-height: 1.8; letter-spacing: .02em; }
+  footer .brand { font-family: var(--serif); font-size: 16px; color: var(--ink-2); letter-spacing: .2em; margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -212,8 +213,8 @@
     return `
       <li><a class="item ${CLS[it.level] || "s-none"}" href="${esc(it.url)}" target="_blank" rel="noopener">
         <span class="mark" aria-hidden="true">${ICON[it.level] || ICON.unknown}</span>
-        <span class="ship">${esc(name)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>
         <span class="label">${esc(it.label)}</span>
+        <span class="ship">${esc(name)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>
         <span class="route">${route}</span>
         ${it.headline ? `<span class="note-line">${esc(it.headline)}</span>` : ""}
         <span class="src">公式ページで確認 →${it.updated ? `　${esc(it.updated)} 更新` : ""}</span>
