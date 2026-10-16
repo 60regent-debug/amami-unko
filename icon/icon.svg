@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#061f36"/>
+      <stop offset=".6" stop-color="#0a3558"/>
+      <stop offset="1" stop-color="#11568a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".78" cy=".12" r=".6">
+      <stop offset="0" stop-color="#78bee8" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#78bee8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+  <!-- 島影（装飾） -->
+  <path d="M250 300 C285 270 310 252 338 258 C360 232 392 216 420 232 C440 222 462 232 478 252 C496 254 512 270 512 280 L512 300 Z" fill="#ffffff" opacity=".14"/>
+  <!-- フェリー -->
+  <g fill="#fffcf6">
+    <path d="M86 300 L426 300 L392 360 L124 360 Z"/>
+    <rect x="150" y="252" width="200" height="40" rx="6"/>
+    <rect x="190" y="214" width="120" height="34" rx="6"/>
+    <rect x="262" y="178" width="30" height="40" rx="4" fill="#d9c4ae"/>
+  </g>
+  <g fill="#0a3558">
+    <rect x="170" y="264" width="22" height="14" rx="3"/>
+    <rect x="204" y="264" width="22" height="14" rx="3"/>
+    <rect x="238" y="264" width="22" height="14" rx="3"/>
+    <rect x="272" y="264" width="22" height="14" rx="3"/>
+    <rect x="306" y="264" width="22" height="14" rx="3"/>
+    <rect x="210" y="224" width="80" height="12" rx="3"/>
+  </g>
+  <rect x="112" y="320" width="288" height="8" fill="#3a2a20" opacity=".55"/>
+  <!-- 波 -->
+  <path d="M0 392 C64 370 128 370 192 388 C256 406 320 408 384 390 C432 378 480 376 512 380 L512 512 L0 512 Z" fill="#3b8fc7" opacity=".55"/>
+  <path d="M0 446 C70 428 140 428 210 442 C280 456 350 456 420 440 C460 432 490 430 512 434 L512 512 L0 512 Z" fill="#f4efe6"/>
+</svg>
