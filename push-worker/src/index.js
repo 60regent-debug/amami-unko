@@ -137,7 +137,10 @@ async function setouchiItem(env) {
 async function handleEmail(message, env) {
   const mail = await PostalMime.parse(message.raw);
   const from = (mail.from && mail.from.address) || message.from || "";
-  const fromTown = TOWN_SENDER.test(from);
+  // 差出人欄は偽装できるので、配送経路（エンベロープ送信元）も確かめる：町から直接か、Gmailの正式な転送（+caf_=）だけ
+  const envelope = message.from || "";
+  const viaTrusted = /@raiden3\.ktaiwork\.jp$/i.test(envelope) || /\+caf_=unko=tatsunoko-amami\.com@gmail\.com$/i.test(envelope);
+  const fromTown = TOWN_SENDER.test(from) && viaTrusted;
   const fromGoogle = /@google\.com$/i.test(from);   // Gmailの転送確認メール
   if (!fromTown && !fromGoogle) { message.setReject("not accepted"); return; }
   const text = (mail.text || (mail.html || "").replace(/<[^>]+>/g, " ")).normalize("NFKC");
