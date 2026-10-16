@@ -47,8 +47,23 @@ async function send(env, subscription, message) {
   return true;
 }
 
+// 届け先は主要な通知サービスだけに限る（任意のURLへ中継されないように）
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^web\.push\.apple\.com$/, /\.push\.apple\.com$/,
+  /^updates\.push\.services\.mozilla\.com$/, /\.notify\.windows\.com$/];
+
 function validSubscription(s) {
-  return s && typeof s.endpoint === "string" && s.endpoint.startsWith("https://") && s.keys && s.keys.p256dh && s.keys.auth;
+  if (!s || typeof s.endpoint !== "string" || !s.keys || typeof s.keys.p256dh !== "string" || typeof s.keys.auth !== "string") return false;
+  try {
+    const u = new URL(s.endpoint);
+    return u.protocol === "https:" && PUSH_HOSTS.some((re) => re.test(u.hostname));
+  } catch { return false; }
+}
+
+// 既存の登録を変える・消すときは、登録時と同じ鍵を持っていることを確かめる
+async function ownsRecord(env, key, subscription) {
+  const rec = JSON.parse((await env.SUBS.get(key)) || "null");
+  if (!rec) return { exists: false, ok: true };
+  return { exists: true, ok: rec.subscription.keys.auth === subscription.keys.auth && rec.subscription.keys.p256dh === subscription.keys.p256dh };
 }
 
 async function handle(req, env) {
@@ -64,14 +79,19 @@ async function handle(req, env) {
     if (!validSubscription(body.subscription)) return json(req, { error: "bad subscription" }, 400);
     const targets = Array.isArray(body.targets) ? body.targets.filter((t) => typeof t === "string").slice(0, 30) : [];
     const key = await subKey(body.subscription.endpoint);
-    if (!targets.length) { await env.SUBS.delete(key); return json(req, { ok: true, targets: [] }); }
+    const own = await ownsRecord(env, key, body.subscription);
+    if (!own.ok) return json(req, { error: "forbidden" }, 403);
+    if (!targets.length) { if (own.exists) await env.SUBS.delete(key); return json(req, { ok: true, targets: [] }); }
     await env.SUBS.put(key, JSON.stringify({ subscription: body.subscription, targets, updated: new Date().toISOString() }));
     return json(req, { ok: true, targets });
   }
 
   if (url.pathname === "/unsubscribe") {
-    if (typeof body.endpoint !== "string") return json(req, { error: "bad endpoint" }, 400);
-    await env.SUBS.delete(await subKey(body.endpoint));
+    if (!validSubscription(body.subscription)) return json(req, { error: "bad subscription" }, 400);
+    const key = await subKey(body.subscription.endpoint);
+    const own = await ownsRecord(env, key, body.subscription);
+    if (!own.ok) return json(req, { error: "forbidden" }, 403);
+    if (own.exists) await env.SUBS.delete(key);
     return json(req, { ok: true });
   }
 
