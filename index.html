@@ -78,6 +78,10 @@
   .hero .wave1 { bottom: 6px; height: 40px; opacity: .18; }
   .hero .wave2 { bottom: -1px; height: 36px; }
   .hero .wave2 path { fill: var(--sand); }
+  .hero svg { z-index: 1; }
+  /* マスコット（BLUEBIRD AMAMIのロゴの鳥・形は原画のまま） */
+  .hero .bird { position: absolute; z-index: 2; right: max(16px, calc(50% - 264px)); bottom: 30px; width: 92px; height: auto; pointer-events: none; }
+  .soon .bird-s { display: block; width: 46px; margin: 0 0 8px; }
 
   /* ── 港の切り替え ── */
   .switch {
@@ -233,6 +237,7 @@
     <div class="lead">船と飛行機の欠航を、ひと目で。</div>
     <div class="stamp" id="stamp">読み込み中…</div>
   </div>
+  <img class="bird" src="mascot.png" alt="" aria-hidden="true">
   <!-- 装飾：島影と波（特定の地形・文様の再現ではない） -->
   <svg class="isle" viewBox="0 0 400 70" preserveAspectRatio="none" aria-hidden="true">
     <path d="M190 70 C215 52 232 40 252 44 C268 26 292 14 314 24 C330 16 348 22 360 34 C378 34 392 48 400 56 L400 70 Z" fill="#fff"/>
@@ -285,7 +290,7 @@
 
 <footer>
   <div class="brand">奄美 運航情報</div>
-  各社の公式ページをもとに、運航状況の区分だけを表示しています。寄港地の変更や時刻など詳しい内容は、各便の「公式ページ」から必ずご確認ください。試作版のため、表示が遅れたり誤ったりする場合があります。
+  各社の公式ページをもとに、運航状況の区分だけを表示しています。寄港地の変更や時刻など詳しい内容は、各便の「公式ページ」から必ずご確認ください。試作版のため、表示が遅れたり誤ったりする場合があります。利用状況を数えるため、端末ごとのランダムな番号だけを送っています（お名前など個人を特定する情報は集めていません）。
 </footer>
 
 <script>
@@ -501,7 +506,7 @@
     document.getElementById("fl-tally").innerHTML =
       `${n("cancel") ? `<span class="t-stop">欠航 ${n("cancel")}</span>` : ""}${n("caution") ? `<span class="t-warn">変更 ${n("caution")}</span>` : ""}`;
     el.innerHTML = `
-      ${rest.length ? rest.map(flightRow).join("") : `<div class="soon">今日のこれからの便はありません</div>`}
+      ${rest.length ? rest.map(flightRow).join("") : `<div class="soon"><img class="bird-s" src="mascot.png" alt="">今日のこれからの便はありません</div>`}
       ${done.length ? (showDone ? done.map(flightRow).join("") : "") +
         `<button class="btn more-btn" id="toggle-done">${showDone ? "終わった便をかくす" : `終わった便も見る（${done.length}便）`}</button>` : ""}
       <a class="btn more-btn" href="${esc(safeUrl(fl.url))}" target="_blank" rel="noopener">奄美空港の公式ページ →</a>`;
@@ -547,6 +552,15 @@
   }));
   render();
   notifyBox();
+
+  // 利用者数を数えるため、端末ごとのランダムな番号だけを送る（1日1回）
+  try {
+    let u = localStorage.getItem("uid");
+    if (!u) { u = [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join(""); localStorage.setItem("uid", u); }
+    const day = new Date().toDateString();
+    if (localStorage.getItem("pinged") !== day)
+      post("/ping", { u }).then(() => localStorage.setItem("pinged", day)).catch(() => {});
+  } catch (e) {}
 
   // 最新の情報は Cloudflare（15分おきに更新）から。読めないときは公開時点の status.json を使う
   fetch(PUSH_API + "/status.json")

@@ -337,9 +337,19 @@ async function handle(req, env) {
     return new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60", ...cors(req) } });
   }
 
+  if (url.pathname === "/stats" && req.method === "GET") return json(req, JSON.parse((await env.SUBS.get("stats")) || "{}"));
+
   if (req.method !== "POST") return json(req, { error: "not found" }, 404);
   let body;
   try { body = await req.json(); } catch { return json(req, { error: "bad json" }, 400); }
+
+  // 利用者数：端末ごとのランダムな番号だけを受け取り、最後に開いた日を7日間だけ覚える（個人情報は受け取らない）
+  if (url.pathname === "/ping") {
+    if (typeof body.u !== "string" || !/^[0-9a-f]{32}$/.test(body.u)) return json(req, { error: "bad id" }, 400);
+    const today = jstNow().slice(0, 10), key = `seen:${body.u}`;
+    if ((await env.SUBS.get(key)) !== today) await env.SUBS.put(key, today, { expirationTtl: 7 * 24 * 3600 });
+    return json(req, { ok: true });
+  }
 
   if (url.pathname === "/subscribe") {
     if (!validSubscription(body.subscription)) return json(req, { error: "bad subscription" }, 400);
@@ -374,7 +384,19 @@ async function handle(req, env) {
   return json(req, { error: "not found" }, 404);
 }
 
+// 直近7日間に開いた端末の数（1時間に1回だけ数える）
+async function countActive(env) {
+  if (new Date().getUTCMinutes() >= 15) return;
+  let n = 0, cursor;
+  do {
+    const r = await env.SUBS.list({ prefix: "seen:", cursor });
+    n += r.keys.length; cursor = r.list_complete ? null : r.cursor;
+  } while (cursor);
+  await env.SUBS.put("stats", JSON.stringify({ active7d: n, counted_at: jstNow() }));
+}
+
 async function checkAndNotify(env) {
+  try { await countActive(env); } catch (e) { console.log("利用者数を数えられません", e.message); }
   const data = await scrapeAll(env);
   // 全社とも読めなかったときは、前回の情報を残して通知もしない
   const got = data.items.filter((i) => i.level !== "unknown").length;
