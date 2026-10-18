@@ -207,7 +207,43 @@ async function fetchWeather() {
       windDir: DIR16[v("windDirection")] || null, rain1h: v("precipitation1h"),
     };
   } catch (e) { w.nowError = e.message; }
+  try { w.typhoons = await fetchTyphoons(); } catch (e) { w.typhoonError = e.message; }
   return w;
+}
+
+// ── 台風（気象庁：発表中の台風と5日先までの予報） ──
+const JMA_TYPHOON = "https://www.jma.go.jp/bosai/typhoon/data";
+const AMAMI = [28.377, 129.494]; // 名瀬
+function kmFromAmami([lat, lon]) {
+  const r = (x) => x * Math.PI / 180;
+  const a = Math.sin(r(lat - AMAMI[0]) / 2) ** 2 + Math.cos(r(AMAMI[0])) * Math.cos(r(lat)) * Math.sin(r(lon - AMAMI[1]) / 2) ** 2;
+  return Math.round(6371 * 2 * Math.asin(Math.sqrt(a)));
+}
+
+async function fetchTyphoons() {
+  const list = await getJson(`${JMA_TYPHOON}/targetTc.json`);
+  const out = [];
+  for (const tc of list) {
+    if (!/^TC\d+$/.test(tc.tropicalCyclone)) continue;
+    const spec = await getJson(`${JMA_TYPHOON}/${tc.tropicalCyclone}/specifications.json`);
+    const title = spec.find(x => x.part === "title") || {};
+    const pts = spec.filter(x => x.position && x.validtime).map(x => ({
+      time: x.validtime.JST.slice(0, 16), hours: x.advancedHours || 0, km: kmFromAmami(x.position.deg),
+      // 暴風域（予報円の分も足す）が奄美まで届くか
+      reach: (x.stormWarning?.[0]?.range?.km || 0) + (x.probabilityCircleRadius?.km || 0),
+      location: x.location || "", intensity: x.intensity && x.intensity !== "-" ? x.intensity : "",
+      pressure: x.pressure || "",
+    }));
+    if (!pts.length) continue;
+    const now = pts[0], near = pts.reduce((a, b) => (b.km < a.km ? b : a));
+    const level = pts.some(p => p.reach && p.km <= p.reach) ? "storm" : near.km <= 800 ? "near" : near.km <= 1500 ? "watch" : "far";
+    const num = String(tc.typhoonNumber || "").slice(-2).replace(/^0/, "");
+    out.push({
+      name: num ? `台風${num}号` : (title.category?.jp || "熱帯低気圧"), nickname: title.name?.jp || "",
+      level, now, near, issued: title.issue?.JST?.slice(0, 16) || "",
+    });
+  }
+  return out;
 }
 
 function jstNow() {

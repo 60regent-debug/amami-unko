@@ -141,6 +141,19 @@
   .wx-cell.big-wave b { color: var(--stop); }
   .wx-wave { margin-top: 8px; font-size: 16px; color: var(--ink-2); }
   .wx-next { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 16px; color: var(--ink-2); }
+  .ty { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--sand); border-left: 6px solid var(--none); }
+  .ty.storm, .ty.near { background: var(--stop-bg); border-left-color: var(--stop); }
+  .ty.watch { background: var(--warn-bg); border-left-color: var(--warn); }
+  .ty-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+  .ty-name { font-size: 20px; font-weight: 900; }
+  .ty-name small { font-size: 15px; font-weight: 700; color: var(--ink-3); margin-left: 4px; }
+  .ty-lv { font-size: 15px; font-weight: 900; color: var(--c, var(--none)); }
+  .ty.storm .ty-lv, .ty.near .ty-lv { --c: var(--stop); }
+  .ty.watch .ty-lv { --c: var(--warn); }
+  .ty-line { font-size: 16px; color: var(--ink-2); line-height: 1.55; margin-top: 2px; }
+  .ty-line b { color: var(--ink); }
+  .nw { white-space: nowrap; }
+  .ty-note { font-size: 15px; color: var(--ink-2); margin-top: 4px; }
   .wx-src { margin-top: 6px; font-size: 13px; color: var(--ink-3); }
   .wx-src a { color: var(--link); white-space: nowrap; }
 
@@ -410,6 +423,29 @@
 
   // ── 天気 ──
   const SKY = { sun: "☀️", cloud: "☁️", rain: "☔", snow: "❄️" };
+  const TY_LV = {
+    storm: ["暴風域に入るおそれ", "船・飛行機とも欠航の可能性が高くなります。早めに公式情報を確認してください。"],
+    near: ["接近のおそれ", "高波やうねりで、船を中心に欠航・条件付になりやすくなります。"],
+    watch: ["今後の進路に注意", "離れていても、うねりで船が欠航・条件付になることがあります。"],
+    far: ["奄美からは遠い", ""],
+  };
+  const md = t => t ? `${+t.slice(5, 7)}月${+t.slice(8, 10)}日${+t.slice(11, 13)}時` : "";
+  function typhoonHtml(list) {
+    if (!list || !list.length) return "";
+    return list.map(t => {
+      const [lv, note] = TY_LV[t.level] || TY_LV.far;
+      const str = [t.now.intensity, t.now.pressure ? `${esc(t.now.pressure)}hPa` : ""].filter(Boolean).join("・");
+      const near = t.near.hours > 0 && t.near.km < t.now.km
+        ? `<div class="ty-line">最も近づく予想：<b><span class="nw">${md(t.near.time)}ごろ</span> <span class="nw">約${t.near.km.toLocaleString()}km</span></b>（${esc(t.near.location)}）</div>` : "";
+      return `<div class="ty ${esc(t.level)}">
+        <div class="ty-head"><span class="ty-name">🌀 ${esc(t.name)}${t.nickname ? `<small>${esc(t.nickname)}</small>` : ""}</span><span class="ty-lv">${lv}</span></div>
+        <div class="ty-line">いま：${esc(t.now.location)}　<span class="nw">奄美から約${t.now.km.toLocaleString()}km</span>${str ? `（${esc(str)}）` : ""}</div>
+        ${near}
+        ${note ? `<div class="ty-note">${note}</div>` : ""}
+      </div>`;
+    }).join("");
+  }
+
   function renderWeather(w) {
     const el = document.getElementById("wx");
     const t = w && w.days && w.days[0], now = w && w.now;
@@ -433,7 +469,8 @@
       </div>
       ${t && /うねり/.test(t.wave) ? `<div class="wx-wave">🌊 うねりがあります</div>` : ""}
       ${tm ? `<div class="wx-next">明日　${SKY[tm.sky]} ${esc(tm.weather)}　波 ${esc(tm.wave.replace(/（.*）/, ""))}${tm.max != null ? `　${tm.max}℃` : ""}</div>` : ""}
-      <div class="wx-src">気象庁（奄美地方の予報${now ? `・名瀬 ${esc(now.time)} 観測` : ""}）<a href="${esc(safeUrl(w.url))}" target="_blank" rel="noopener">詳しく →</a></div>`;
+      ${typhoonHtml(w.typhoons)}
+      <div class="wx-src">気象庁（奄美地方の予報${now ? `・名瀬 ${esc(now.time)} 観測` : ""}${w.typhoons && w.typhoons.length ? "・台風情報" : ""}）<a href="${esc(safeUrl(w.url))}" target="_blank" rel="noopener">天気 →</a>${w.typhoons && w.typhoons.length ? ` <a href="https://www.jma.go.jp/bosai/map.html#contents=typhoon" target="_blank" rel="noopener">台風 →</a>` : ""}</div>`;
   }
 
   let flKind = "departures", showDone = false;
