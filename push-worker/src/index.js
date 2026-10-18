@@ -346,11 +346,13 @@ async function handle(req, env) {
   // 利用者数：端末ごとのランダムな番号だけを受け取り、最後に開いた日を7日間だけ覚える（個人情報は受け取らない）
   if (url.pathname === "/ping") {
     if (typeof body.u !== "string" || !/^[0-9a-f]{32}$/.test(body.u)) return json(req, { error: "bad id" }, 400);
-    // 書き込み枠（無料で1日1,000回）を使い切られて運航情報の更新が止まらないよう、同じ回線からの回数を制限
+    // 同じ回線からの連打を制限（IPv6は /64 単位でまとめる）
     const ip = req.headers.get("CF-Connecting-IP") || "unknown";
-    if (env.PING_LIMIT && !(await env.PING_LIMIT.limit({ key: ip })).success) return json(req, { error: "too many" }, 429);
-    const today = jstNow().slice(0, 10), key = `seen:${body.u}`;
-    if ((await env.SUBS.get(key)) !== today) await env.SUBS.put(key, today, { expirationTtl: 7 * 24 * 3600 });
+    const ipKey = ip.includes(":") ? ip.split(":").slice(0, 4).join(":") : ip;
+    if (env.PING_LIMIT && !(await env.PING_LIMIT.limit({ key: ipKey })).success) return json(req, { error: "too many" }, 429);
+    // 記録はKVではなくD1へ（乱用されても運航情報の保存・通知は止まらない）
+    await env.STATS.prepare("INSERT INTO seen (u, day) VALUES (?1, ?2) ON CONFLICT(u) DO UPDATE SET day = excluded.day WHERE seen.day <> excluded.day")
+      .bind(body.u, jstNow().slice(0, 10)).run();
     return json(req, { ok: true });
   }
 
@@ -390,11 +392,10 @@ async function handle(req, env) {
 // 直近7日間に開いた端末の数（1時間に1回だけ数える）
 async function countActive(env) {
   if (new Date().getUTCMinutes() >= 15) return;
-  let n = 0, cursor, pages = 0;
-  do {
-    const r = await env.SUBS.list({ prefix: "seen:", cursor });
-    n += r.keys.length; cursor = r.list_complete ? null : r.cursor;
-  } while (cursor && ++pages < 5);   // 5,000台まで数えれば十分（それ以上は「5,000以上」）
+  const since = new Date(Date.now() + 9 * 3600 * 1000 - 6 * 86400 * 1000).toISOString().slice(0, 10);
+  const n = (await env.STATS.prepare("SELECT COUNT(*) AS n FROM seen WHERE day >= ?1").bind(since).first()).n;
+  // 7日より古い記録は消す
+  await env.STATS.prepare("DELETE FROM seen WHERE day < ?1").bind(since).run();
   await env.SUBS.put("stats", JSON.stringify({ active7d: n, counted_at: jstNow() }));
 }
 
