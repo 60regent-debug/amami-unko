@@ -157,6 +157,59 @@ async function handleEmail(message, env) {
   await env.SUBS.put("setouchi", JSON.stringify({ level, label, headline, received }));
 }
 
+// ── 天気（気象庁の公開データ：奄美地方の予報＋アメダス名瀬の観測） ──
+const JMA_FORECAST_URL = "https://www.jma.go.jp/bosai/forecast/data/forecast/460100.json";
+const JMA_AMEDAS = "https://www.jma.go.jp/bosai/amedas/data";
+const JMA_PAGE_URL = "https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=460100";
+const DIR16 = ["静穏", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東", "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西", "北"];
+const jmaText = (t) => (t || "").normalize("NFKC").replace(/ただし.*$/, "").replace(/\s+/g, "")
+  .replace(/後/g, " のち ").replace(/メートル/g, "m").replace(/うねりを伴う/, "（うねりあり）").trim();
+const skyOf = (code) => ({ 1: "sun", 2: "cloud", 3: "rain", 4: "snow" })[String(code || "")[0]] || "cloud";
+
+async function getJson(url) {
+  const r = await fetch(url, { headers: { "User-Agent": UA } });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function fetchWeather() {
+  const w = { url: JMA_PAGE_URL };
+  try {
+    const [short] = await getJson(JMA_FORECAST_URL);
+    const area = (ts) => ts.areas.find(a => a.area.code === "460040");
+    const [days, pops, temps] = short.timeSeries;
+    const d = area(days);
+    const today = days.timeDefines[0].slice(0, 10);
+    w.days = days.timeDefines.slice(0, 2).map((t, i) => ({
+      date: t.slice(0, 10), sky: skyOf(d.weatherCodes[i]),
+      weather: jmaText(d.weathers[i]), wind: jmaText(d.winds[i]), wave: jmaText(d.waves[i]),
+    }));
+    // 今日のこれからの降水確率（いちばん高い値）
+    const p = area(pops).pops.filter((v, i) => v !== "" && pops.timeDefines[i].startsWith(today)).map(Number);
+    if (p.length) w.days[0].pop = Math.max(...p);
+    // 名瀬の気温（09時=最高、00時=最低）
+    const naze = temps.areas.find(a => a.area.code === "88837");
+    if (naze) temps.timeDefines.forEach((t, i) => {
+      const day = w.days.find(x => x.date === t.slice(0, 10));
+      if (day && naze.temps[i] !== "") day[t.slice(11, 13) === "09" ? "max" : "min"] = Number(naze.temps[i]);
+    });
+    if (w.days[0].min !== undefined && w.days[0].min === w.days[0].max) delete w.days[0].min;
+    w.reported = short.reportDatetime;
+  } catch (e) { w.forecastError = e.message; }
+  try {
+    const latest = (await (await fetch(`${JMA_AMEDAS}/latest_time.txt`, { headers: { "User-Agent": UA } })).text()).trim();
+    const block = String(Math.floor(Number(latest.slice(11, 13)) / 3) * 3).padStart(2, "0");
+    const obs = await getJson(`${JMA_AMEDAS}/point/88837/${latest.slice(0, 10).replace(/-/g, "")}_${block}.json`);
+    const k = Object.keys(obs).sort().pop();
+    const o = obs[k], v = (x) => (o[x] && o[x][1] === 0 ? o[x][0] : null);
+    w.now = {
+      time: `${k.slice(8, 10)}:${k.slice(10, 12)}`, temp: v("temp"), wind: v("wind"),
+      windDir: DIR16[v("windDirection")] || null, rain1h: v("precipitation1h"),
+    };
+  } catch (e) { w.nowError = e.message; }
+  return w;
+}
+
 function jstNow() {
   const d = new Date(Date.now() + 9 * 3600 * 1000);
   return d.toISOString().slice(0, 16).replace("T", " ");
@@ -177,7 +230,9 @@ async function scrapeAll(env) {
     if (!flights.arrivals.length && !flights.departures.length) errors.push("奄美空港: 読み取れた便が0件（ページの形が変わった可能性）");
   } catch (e) { errors.push(`奄美空港: ${e.message}`); }
   items.push(await setouchiItem(env));
-  return { generated_at: jstNow(), items, flights, errors };
+  // 天気は取れなくても運航情報の「取得できませんでした」には含めない
+  const weather = await fetchWeather();
+  return { generated_at: jstNow(), items, flights, weather, errors };
 }
 
 // マリックスは上り・下りをまとめて1つの通知対象にする

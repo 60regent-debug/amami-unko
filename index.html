@@ -98,15 +98,61 @@
   }
   .seg button[aria-pressed="true"] { background: var(--doro); color: var(--sand); }
 
+  /* ── 乗り物の切り替え（フェリー／飛行機） ── */
+  .mode {
+    max-width: 528px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .mode button {
+    font: inherit; font-weight: 900; font-size: 22px; letter-spacing: .06em; line-height: 1.2;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border: 2px solid var(--rule); background: var(--paper); color: var(--ink-2);
+    padding: 14px 6px; border-radius: 14px; cursor: pointer; position: relative;
+    box-shadow: 0 6px 20px -12px rgba(36,26,19,.4);
+  }
+  .mode button[aria-pressed="true"] { background: var(--sea-1); border-color: var(--sea-1); color: #fff; }
+  .mode .badge {
+    position: absolute; top: -9px; right: -4px; font-size: 14px; font-weight: 700; letter-spacing: 0;
+    padding: 2px 8px; border-radius: 999px; color: #fff; background: var(--stop); border: 2px solid var(--sand);
+  }
+  .mode .badge.warn { background: var(--warn); }
+  .sub { max-width: 528px; margin: 10px auto 0; }
+  .seg.small button { font-size: 17px; padding: 9px 0; }
+  .seg.two { grid-template-columns: 1fr 1fr; }
+  [hidden] { display: none !important; }
+
+  /* ── 天気 ── */
+  .wx {
+    max-width: 528px; margin: -44px auto 14px; position: relative; z-index: 3;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 18px;
+    padding: 16px 18px 14px; box-shadow: 0 14px 34px -18px rgba(8,42,71,.55);
+  }
+  .wx-wrap { padding: 0 16px; }
+  .wx-top { display: flex; align-items: center; gap: 14px; }
+  .wx-icon { font-size: 44px; line-height: 1; }
+  .wx-temp { font-size: 40px; font-weight: 900; letter-spacing: 0; line-height: 1; }
+  .wx-temp small { font-size: 17px; font-weight: 700; color: var(--ink-3); margin-left: 2px; }
+  .wx-sky { font-size: 18px; font-weight: 700; line-height: 1.4; }
+  .wx-sky small { display: block; font-size: 15px; font-weight: 500; color: var(--ink-3); }
+  .wx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .wx-cell { background: var(--sand); border-radius: 12px; padding: 8px 10px; }
+  .wx-cell span { display: block; font-size: 14px; font-weight: 700; color: var(--ink-3); letter-spacing: .08em; }
+  .wx-cell b { display: block; font-size: 18px; font-weight: 900; line-height: 1.35; }
+  .wx-cell b small { font-size: 14px; font-weight: 700; }
+  .wx-cell.big-wave b { color: var(--stop); }
+  .wx-wave { margin-top: 8px; font-size: 16px; color: var(--ink-2); }
+  .wx-next { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 16px; color: var(--ink-2); }
+  .wx-src { margin-top: 6px; font-size: 13px; color: var(--ink-3); }
+  .wx-src a { color: var(--link); white-space: nowrap; }
+
   main { max-width: 560px; margin: 0 auto; padding: 6px 16px 40px; }
 
   /* ── セクション見出し ── */
   .sec { margin-top: 26px; }
-  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px 12px; border-bottom: 1px solid var(--rule); }
+  .sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px 12px; border-bottom: 1px solid var(--rule); }
   .sec-head h2 { margin: 0; font-family: var(--serif); font-weight: 900; font-size: 29px; letter-spacing: .1em; }
   .sec-head h2 small { font-family: var(--sans); font-weight: 700; font-size: 14px; letter-spacing: .18em; color: var(--ink-3); margin-left: 10px; }
   .tally { display: flex; gap: 6px; font-size: 17px; font-weight: 700; }
-  .tally span { padding: 3px 10px; border-radius: 999px; }
+  .tally span { padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
   .tally .t-stop { color: var(--stop); background: var(--stop-bg); }
   .tally .t-warn { color: var(--warn); background: var(--warn-bg); }
   .tally .t-ok { color: var(--ok); background: var(--ok-bg); }
@@ -146,10 +192,6 @@
   .s-stop { --c: var(--stop); --bg: var(--stop-bg); }
   .s-none { --c: var(--none); --bg: var(--none-bg); }
 
-  .fl-tabs { display: flex; gap: 8px; margin: 14px 0 4px; }
-  .fl-tabs button { flex: 1; font: inherit; font-size: 18px; font-weight: 700; padding: 10px 0; border-radius: 10px; cursor: pointer;
-    border: 1.5px solid var(--rule); background: var(--paper); color: var(--ink-2); }
-  .fl-tabs button[aria-pressed="true"] { background: var(--sea-1); border-color: var(--sea-1); color: #fff; }
   .flight { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 14px 4px; border-bottom: 1px solid var(--rule); }
   .flight .when { font-size: 24px; font-weight: 900; letter-spacing: .02em; }
   .flight .when s { font-size: 17px; font-weight: 500; color: var(--ink-3); margin-right: 6px; }
@@ -175,7 +217,7 @@
   <div class="inner">
     <div class="eyebrow">Amami Oshima · Ferry &amp; Flight</div>
     <h1>奄美 運航情報</h1>
-    <div class="lead">船と飛行機の欠航・条件付を、港ごとにひと目で。</div>
+    <div class="lead">船と飛行機の欠航を、ひと目で。</div>
     <div class="stamp" id="stamp">読み込み中…</div>
   </div>
   <!-- 装飾：島影と波（特定の地形・文様の再現ではない） -->
@@ -190,19 +232,33 @@
   </svg>
 </header>
 
+<div class="wx-wrap"><section class="wx" id="wx" aria-label="奄美の天気"><div class="wx-sky">天気を読み込み中…</div></section></div>
+
 <div class="switch">
-  <div class="seg" role="group" aria-label="港を選ぶ">
-    <button data-port="名瀬港" aria-pressed="true">名瀬港</button>
-    <button data-port="古仁屋港" aria-pressed="false">古仁屋港</button>
-    <button data-port="all" aria-pressed="false">すべて</button>
+  <div class="mode" role="group" aria-label="乗り物を選ぶ">
+    <button data-mode="ferry" aria-pressed="true">🚢 フェリー<span class="badge" id="badge-ferry" hidden></span></button>
+    <button data-mode="flight" aria-pressed="false">✈️ 飛行機<span class="badge" id="badge-flight" hidden></span></button>
+  </div>
+  <div class="sub" id="sub-ferry">
+    <div class="seg small" role="group" aria-label="港を選ぶ">
+      <button data-port="名瀬港" aria-pressed="true">名瀬港</button>
+      <button data-port="古仁屋港" aria-pressed="false">古仁屋港</button>
+      <button data-port="all" aria-pressed="false">すべて</button>
+    </div>
+  </div>
+  <div class="sub" id="sub-flight" hidden>
+    <div class="seg small two" role="group" aria-label="出発・到着を選ぶ">
+      <button data-kind="departures" aria-pressed="true">出発便</button>
+      <button data-kind="arrivals" aria-pressed="false">到着便</button>
+    </div>
   </div>
 </div>
 
 <main>
   <div id="ships"></div>
 
-  <section class="sec">
-    <div class="sec-head"><h2>✈️ 奄美空港<small>AIRPORT</small></h2></div>
+  <section class="sec" id="flight-sec" hidden>
+    <div class="sec-head"><h2>奄美空港<small>AIRPORT</small></h2><div class="tally" id="fl-tally"></div></div>
     <div id="flights"><div class="soon">読み込み中…</div></div>
   </section>
 
@@ -314,8 +370,8 @@
     if (b) toggle(b.dataset.key);
   });
 
-  let data = null, current = "名瀬港";
-  try { current = localStorage.getItem("port") || current; } catch (e) {}
+  let data = null, current = "名瀬港", mode = "ferry";
+  try { current = localStorage.getItem("port") || current; mode = localStorage.getItem("mode") || mode; } catch (e) {}
 
   const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : "#"; } catch (e) { return "#"; } };
 
@@ -352,6 +408,34 @@
     </section>`;
   }
 
+  // ── 天気 ──
+  const SKY = { sun: "☀️", cloud: "☁️", rain: "☔", snow: "❄️" };
+  function renderWeather(w) {
+    const el = document.getElementById("wx");
+    const t = w && w.days && w.days[0], now = w && w.now;
+    if (!t && !now) { el.hidden = true; return; }
+    const temp = now && now.temp != null ? now.temp.toFixed(1) : (t && t.max != null ? t.max : "–");
+    const range = t ? [t.max != null ? `最高 ${t.max}℃` : "", t.min != null ? `最低 ${t.min}℃` : ""].filter(Boolean).join(" / ") : "";
+    const wind = now && now.wind != null ? `${now.windDir && now.windDir !== "静穏" ? esc(now.windDir) + " " : ""}${now.wind}<small>m</small>` : (t ? esc(t.wind) : "–");
+    const waveNum = t ? parseFloat((t.wave.match(/[\d.]+(?=m)/g) || []).pop() || "0") : 0;
+    const rain = now && now.rain1h ? `${now.rain1h}<small>mm/時</small>` : (t && t.pop != null ? `${t.pop}<small>%</small>` : "–");
+    const tm = w.days && w.days[1];
+    el.innerHTML = `
+      <div class="wx-top">
+        <span class="wx-icon" aria-hidden="true">${SKY[t ? t.sky : "cloud"]}</span>
+        <span class="wx-temp">${temp}<small>℃</small></span>
+        <span class="wx-sky">${t ? esc(t.weather) : ""}<small>${range ? range + "（名瀬）" : "名瀬"}</small></span>
+      </div>
+      <div class="wx-grid">
+        <div class="wx-cell${waveNum >= 3 ? " big-wave" : ""}"><span>波</span><b>${t ? esc(t.wave.replace(/（.*）/, "")) : "–"}</b></div>
+        <div class="wx-cell"><span>風</span><b>${wind}</b></div>
+        <div class="wx-cell"><span>${now && now.rain1h ? "雨（1時間）" : "降水確率"}</span><b>${rain}</b></div>
+      </div>
+      ${t && /うねり/.test(t.wave) ? `<div class="wx-wave">🌊 うねりがあります</div>` : ""}
+      ${tm ? `<div class="wx-next">明日　${SKY[tm.sky]} ${esc(tm.weather)}　波 ${esc(tm.wave.replace(/（.*）/, ""))}${tm.max != null ? `　${tm.max}℃` : ""}</div>` : ""}
+      <div class="wx-src">気象庁（奄美地方の予報${now ? `・名瀬 ${esc(now.time)} 観測` : ""}）<a href="${esc(safeUrl(w.url))}" target="_blank" rel="noopener">詳しく →</a></div>`;
+  }
+
   let flKind = "departures", showDone = false;
   try { flKind = localStorage.getItem("flKind") || flKind; } catch (e) {}
 
@@ -377,36 +461,52 @@
     const isDone = f => /済み/.test(f.status);
     const rest = list.filter(f => !isDone(f)), done = list.filter(isDone);
     const n = l => rest.filter(f => f.level === l).length;
+    document.getElementById("fl-tally").innerHTML =
+      `${n("cancel") ? `<span class="t-stop">欠航 ${n("cancel")}</span>` : ""}${n("caution") ? `<span class="t-warn">変更 ${n("caution")}</span>` : ""}`;
     el.innerHTML = `
-      <div class="fl-tabs">
-        <button data-kind="departures" aria-pressed="${flKind === "departures"}">出発便</button>
-        <button data-kind="arrivals" aria-pressed="${flKind === "arrivals"}">到着便</button>
-      </div>
-      <div class="tally" style="margin:8px 4px">${n("cancel") ? `<span class="t-stop">欠航 ${n("cancel")}</span>` : ""}${n("caution") ? `<span class="t-warn">変更 ${n("caution")}</span>` : ""}</div>
       ${rest.length ? rest.map(flightRow).join("") : `<div class="soon">今日のこれからの便はありません</div>`}
       ${done.length ? (showDone ? done.map(flightRow).join("") : "") +
         `<button class="btn more-btn" id="toggle-done">${showDone ? "終わった便をかくす" : `終わった便も見る（${done.length}便）`}</button>` : ""}
       <a class="btn more-btn" href="${esc(safeUrl(fl.url))}" target="_blank" rel="noopener">奄美空港の公式ページ →</a>`;
-    el.querySelectorAll(".fl-tabs button").forEach(b => b.onclick = () => {
-      flKind = b.dataset.kind; try { localStorage.setItem("flKind", flKind); } catch (e) {} renderFlights();
-    });
     const t = document.getElementById("toggle-done");
     if (t) t.onclick = () => { showDone = !showDone; renderFlights(); };
   }
 
+  function badge(id, list) {
+    const el = document.getElementById(id);
+    const stop = list.filter(x => x.level === "cancel").length, warn = list.filter(x => x.level === "caution").length;
+    el.hidden = !(stop || warn);
+    el.className = stop ? "badge" : "badge warn";
+    el.textContent = stop ? `欠航${stop}` : `注意${warn}`;
+  }
+
   function render() {
-    document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.port === current)));
+    document.querySelectorAll(".mode button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+    document.querySelectorAll("[data-port]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.port === current)));
+    document.querySelectorAll("[data-kind]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.kind === flKind)));
+    document.getElementById("sub-ferry").hidden = mode !== "ferry";
+    document.getElementById("sub-flight").hidden = mode !== "flight";
+    document.getElementById("ships").hidden = mode !== "ferry";
+    document.getElementById("flight-sec").hidden = mode !== "flight";
     if (!data) return;
     const shown = current === "all" ? PORTS : PORTS.filter(p => p[0] === current);
     document.getElementById("ships").innerHTML =
       shown.map(p => section(p, data.items.filter(i => (i.ports || []).includes(p[0])))).join("");
     renderFlights();
+    badge("badge-ferry", data.items);
+    const fl = data.flights || {};
+    badge("badge-flight", [...(fl.departures || []), ...(fl.arrivals || [])].filter(f => !/済み/.test(f.status)));
   }
 
-  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
-    current = b.dataset.port;
-    try { localStorage.setItem("port", current); } catch (e) {}
-    render();
+  const remember = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => {
+    mode = b.dataset.mode; remember("mode", mode); render(); window.scrollTo({ top: 0 });
+  }));
+  document.querySelectorAll("[data-port]").forEach(b => b.addEventListener("click", () => {
+    current = b.dataset.port; remember("port", current); render();
+  }));
+  document.querySelectorAll("[data-kind]").forEach(b => b.addEventListener("click", () => {
+    flKind = b.dataset.kind; showDone = false; remember("flKind", flKind); render();
   }));
   render();
   notifyBox();
@@ -423,6 +523,7 @@
       const age = (Date.now() - new Date(d.generated_at.replace(" ", "T") + ":00+09:00")) / 60000;
       if (age > 60) stamp.classList.add("stale");
       render();
+      renderWeather(d.weather);
       if (d.errors && d.errors.length)
         document.getElementById("errors").innerHTML = `<div class="error">一部の会社の情報を取得できませんでした。公式ページをご確認ください。</div>`;
     })
