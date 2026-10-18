@@ -12,3 +12,9 @@ VAPID_SUBJECT = "https://60regent-debug.github.io/amami-unko/"
 [[kv_namespaces]]
 binding = "SUBS"
 id = "a0d29e91ec3c486eba010189bfada586"
+
+# /ping（利用者数）の回数制限：同じ回線から1分に5回まで
+[[ratelimits]]
+name = "PING_LIMIT"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }

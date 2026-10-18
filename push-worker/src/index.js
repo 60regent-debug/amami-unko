@@ -346,6 +346,9 @@ async function handle(req, env) {
   // 利用者数：端末ごとのランダムな番号だけを受け取り、最後に開いた日を7日間だけ覚える（個人情報は受け取らない）
   if (url.pathname === "/ping") {
     if (typeof body.u !== "string" || !/^[0-9a-f]{32}$/.test(body.u)) return json(req, { error: "bad id" }, 400);
+    // 書き込み枠（無料で1日1,000回）を使い切られて運航情報の更新が止まらないよう、同じ回線からの回数を制限
+    const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+    if (env.PING_LIMIT && !(await env.PING_LIMIT.limit({ key: ip })).success) return json(req, { error: "too many" }, 429);
     const today = jstNow().slice(0, 10), key = `seen:${body.u}`;
     if ((await env.SUBS.get(key)) !== today) await env.SUBS.put(key, today, { expirationTtl: 7 * 24 * 3600 });
     return json(req, { ok: true });
@@ -387,21 +390,22 @@ async function handle(req, env) {
 // 直近7日間に開いた端末の数（1時間に1回だけ数える）
 async function countActive(env) {
   if (new Date().getUTCMinutes() >= 15) return;
-  let n = 0, cursor;
+  let n = 0, cursor, pages = 0;
   do {
     const r = await env.SUBS.list({ prefix: "seen:", cursor });
     n += r.keys.length; cursor = r.list_complete ? null : r.cursor;
-  } while (cursor);
+  } while (cursor && ++pages < 5);   // 5,000台まで数えれば十分（それ以上は「5,000以上」）
   await env.SUBS.put("stats", JSON.stringify({ active7d: n, counted_at: jstNow() }));
 }
 
 async function checkAndNotify(env) {
-  try { await countActive(env); } catch (e) { console.log("利用者数を数えられません", e.message); }
   const data = await scrapeAll(env);
   // 全社とも読めなかったときは、前回の情報を残して通知もしない
   const got = data.items.filter((i) => i.level !== "unknown").length;
   if (!got) { console.log("読み取り失敗", data.errors); return; }
   await env.SUBS.put("status", JSON.stringify(data));
+  // 利用者数は運航情報を保存したあとに（失敗しても通知の処理は続ける）
+  try { await countActive(env); } catch (e) { console.log("利用者数を数えられません", e.message); }
 
   // 便（通知対象）ごとの「状態の指紋」と、通知文
   const now = {}, text = {};
