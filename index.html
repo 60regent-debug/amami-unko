@@ -81,6 +81,38 @@
   .hero svg { z-index: 1; }
   /* マスコット（BLUEBIRD AMAMIのロゴの鳥・形は原画のまま） */
   .hero .bird { position: absolute; z-index: 2; right: max(16px, calc(50% - 264px)); bottom: 30px; width: 92px; height: auto; pointer-events: none; }
+  /* ── ホーム画面に置く方法 ── */
+  .a2hs-btn {
+    margin-top: 14px; font: inherit; font-size: 17px; font-weight: 700; letter-spacing: .04em;
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; cursor: pointer;
+    color: #fff; background: rgba(255,255,255,.16); border: 1.5px solid rgba(255,255,255,.55);
+  }
+  .a2hs-btn:active { background: rgba(255,255,255,.3); }
+  dialog.a2hs {
+    width: min(560px, calc(100% - 24px)); max-height: calc(100% - 32px); padding: 0; border: 0; border-radius: 20px;
+    background: var(--paper); color: var(--ink); box-shadow: 0 20px 60px -20px rgba(0,0,0,.6);
+  }
+  dialog.a2hs::backdrop { background: rgba(6,31,54,.6); }
+  .a2hs-in { padding: 22px 20px 20px; }
+  .a2hs h2 { margin: 0 0 4px; font-size: 26px; font-weight: 900; letter-spacing: .06em; }
+  .a2hs .why { font-size: 17px; color: var(--ink-2); margin: 0 0 14px; }
+  .a2hs .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .a2hs .tabs button { font: inherit; font-size: 19px; font-weight: 900; padding: 12px 0; border-radius: 12px; cursor: pointer;
+    border: 2px solid var(--rule); background: var(--paper); color: var(--ink-2); }
+  .a2hs .tabs button[aria-pressed="true"] { background: var(--sea-1); border-color: var(--sea-1); color: #fff; }
+  .a2hs ol { list-style: none; margin: 0; padding: 0; counter-reset: st; }
+  .a2hs li { counter-increment: st; display: grid; grid-template-columns: 44px 1fr; gap: 12px; padding: 14px 0; border-top: 1px solid var(--rule);
+    font-size: 21px; font-weight: 700; line-height: 1.55; }
+  .a2hs li::before { content: counter(st); width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--doro); color: var(--sand); font-size: 22px; font-weight: 900; }
+  .a2hs li small { display: block; font-size: 17px; font-weight: 500; color: var(--ink-2); margin-top: 4px; }
+  .a2hs .ic { display: inline-grid; place-items: center; vertical-align: -6px; width: 34px; height: 34px; margin: 0 2px;
+    border-radius: 8px; border: 2px solid var(--ink-3); color: var(--link); background: var(--paper); }
+  .a2hs .ic svg { width: 22px; height: 22px; }
+  .a2hs .key { display: inline-block; padding: 0 8px; border-radius: 6px; background: var(--sand); border: 1.5px solid var(--rule); white-space: nowrap; }
+  .a2hs .done { margin-top: 14px; padding: 14px; border-radius: 12px; background: var(--ok-bg); color: var(--ok); font-size: 18px; font-weight: 700; }
+  .a2hs .install { width: 100%; justify-content: center; margin: 4px 0 12px; font-size: 20px; padding: 14px; background: var(--sea-1); border-color: var(--sea-1); color: #fff; }
+  .a2hs .close { width: 100%; justify-content: center; margin-top: 16px; font-size: 19px; padding: 14px; }
   .soon .bird-s { display: block; width: 46px; margin: 0 0 8px; }
 
   /* ── 港の切り替え ── */
@@ -236,6 +268,7 @@
     <h1>奄美 運航情報</h1>
     <div class="lead">船と飛行機の欠航を、ひと目で。</div>
     <div class="stamp" id="stamp">読み込み中…</div>
+    <div><button class="a2hs-btn" id="a2hs-open" hidden>📱 ホーム画面に置く方法</button></div>
   </div>
   <img class="bird" src="mascot.png" alt="" aria-hidden="true">
   <!-- 装飾：島影と波（特定の地形・文様の再現ではない） -->
@@ -288,6 +321,37 @@
   <div id="errors"></div>
 </main>
 
+
+<dialog class="a2hs" id="a2hs" aria-labelledby="a2hs-title">
+  <div class="a2hs-in">
+    <h2 id="a2hs-title">ホーム画面に置く方法</h2>
+    <p class="why">スマホのホーム画面に、アプリのようにアイコンを置けます。次からはアイコンを押すだけで開けます。お金はかかりません。</p>
+    <div class="tabs" role="group" aria-label="スマホの種類">
+      <button data-os="ios">iPhone</button>
+      <button data-os="android">Android</button>
+    </div>
+    <div data-steps="ios">
+      <ol>
+        <li><span>この画面を <span class="key">Safari</span>（青い方位磁石のアプリ）で開きます<small>LINEなどの中で開いているときは、右下や右上のボタンから「Safariで開く」を選んでください。</small></span></li>
+        <li><span>画面のいちばん下にある <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg></span> を押します<small>見当たらないときは、右下の <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span> を押すと出てきます。</small></span></li>
+        <li><span>出てきた一覧を下へずらして、<span class="key"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg></span>ホーム画面に追加</span> を押します</span></li>
+        <li><span>右上の <span class="key">追加</span> を押します</span></li>
+      </ol>
+      <div class="done">ホーム画面に「奄美運航」のアイコンができたら完了です。🔔通知を使うときも、このアイコンから開いてください。</div>
+    </div>
+    <div data-steps="android" hidden>
+      <button class="btn install" id="a2hs-install" hidden>ここを押して、ホーム画面に置く</button>
+      <ol>
+        <li><span>この画面を <span class="key">Chrome</span>（赤・黄・緑の丸いアプリ）で開きます<small>LINEなどの中で開いているときは、右上の <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></span> から「ブラウザで開く」を選んでください。</small></span></li>
+        <li><span>画面の右上にある <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></span>（点が縦に3つ）を押します</span></li>
+        <li><span><span class="key">ホーム画面に追加</span> を押します<small>機種によっては「アプリをインストール」と出ます。どちらでも同じです。</small></span></li>
+        <li><span><span class="key">追加</span>（または <span class="key">インストール</span>）を押します</span></li>
+      </ol>
+      <div class="done">ホーム画面に「奄美運航」のアイコンができたら完了です。</div>
+    </div>
+    <button class="btn close" id="a2hs-close">とじる</button>
+  </div>
+</dialog>
 <footer>
   <div class="brand">奄美 運航情報</div>
   各社の公式ページをもとに、運航状況の区分だけを表示しています。寄港地の変更や時刻など詳しい内容は、各便の「公式ページ」から必ずご確認ください。試作版のため、表示が遅れたり誤ったりする場合があります。利用状況を数えるため、端末ごとのランダムな番号だけを送っています（お名前など個人を特定する情報は集めていません）。
@@ -369,7 +433,8 @@
     const el = document.getElementById("notify-box");
     if (mode === "guide" || (!mode && (!pushOK || (isIOS && !standalone)))) {
       el.innerHTML = `<b>通知を受け取るには、先にホーム画面に追加してください。</b>
-        <ol><li>Safariの下にある共有ボタン（□に↑）を押す</li><li>「ホーム画面に追加」を押す</li><li>ホーム画面のアイコンから開き直し、便の「🔕 通知する」を押す</li></ol>`;
+        ホーム画面のアイコンから開き直してから、便の「🔕 通知する」を押してください。
+        <div><button class="btn a2hs-link">📱 ホーム画面に置く方法を見る</button></div>`;
     } else if (mode === "denied" || (pushOK && Notification.permission === "denied")) {
       el.innerHTML = `<b>通知が許可されていません。</b><br>iPhoneの「設定」→「通知」→「奄美運航」で通知をオンにしてください。`;
     } else if (mode === "error") {
@@ -383,7 +448,35 @@
     }
   }
 
+  // ── ホーム画面に置く方法 ──
+  const a2hs = document.getElementById("a2hs");
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  let installEvt = null;
+  function a2hsOS(os) {
+    a2hs.querySelectorAll("[data-os]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.os === os)));
+    a2hs.querySelectorAll("[data-steps]").forEach(d => d.hidden = d.dataset.steps !== os);
+  }
+  function openA2hs() {
+    a2hsOS(isAndroid ? "android" : "ios");
+    if (a2hs.showModal) a2hs.showModal(); else a2hs.setAttribute("open", "");
+  }
+  if (!standalone) document.getElementById("a2hs-open").hidden = false;
+  document.getElementById("a2hs-open").onclick = openA2hs;
+  document.getElementById("a2hs-close").onclick = () => a2hs.close ? a2hs.close() : a2hs.removeAttribute("open");
+  a2hs.querySelectorAll("[data-os]").forEach(b => b.onclick = () => a2hsOS(b.dataset.os));
+  // Androidの Chrome では、ボタン1つで追加できる
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault(); installEvt = e;
+    document.getElementById("a2hs-install").hidden = false;
+  });
+  document.getElementById("a2hs-install").onclick = async () => {
+    if (!installEvt) return;
+    installEvt.prompt(); await installEvt.userChoice; installEvt = null;
+    document.getElementById("a2hs-install").hidden = true;
+  };
+
   document.addEventListener("click", e => {
+    if (e.target.closest(".a2hs-link")) { openA2hs(); return; }
     const b = e.target.closest(".bell");
     if (b) toggle(b.dataset.key);
   });
