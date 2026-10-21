@@ -325,7 +325,7 @@ function validSubscription(s) {
 async function ownsRecord(env, key, subscription) {
   const rec = JSON.parse((await env.SUBS.get(key)) || "null");
   if (!rec) return { exists: false, ok: true };
-  return { exists: true, ok: rec.subscription.keys.auth === subscription.keys.auth && rec.subscription.keys.p256dh === subscription.keys.p256dh };
+  return { exists: true, rec, ok: rec.subscription.keys.auth === subscription.keys.auth && rec.subscription.keys.p256dh === subscription.keys.p256dh };
 }
 
 async function handle(req, env) {
@@ -363,6 +363,9 @@ async function handle(req, env) {
     const own = await ownsRecord(env, key, body.subscription);
     if (!own.ok) return json(req, { error: "forbidden" }, 403);
     if (!targets.length) { if (own.exists) await env.SUBS.delete(key); return json(req, { ok: true, targets: [] }); }
+    // 画面は開くたびに送り直してくるので、中身が同じなら書き込まない（KVの書き込み枠を節約）
+    if (own.exists && own.rec.subscription.endpoint === body.subscription.endpoint
+      && JSON.stringify(own.rec.targets) === JSON.stringify(targets)) return json(req, { ok: true, targets });
     await env.SUBS.put(key, JSON.stringify({ subscription: body.subscription, targets, updated: new Date().toISOString() }));
     return json(req, { ok: true, targets });
   }

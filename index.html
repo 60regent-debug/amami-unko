@@ -402,24 +402,65 @@
 
   const post = (path, body) => fetch(PUSH_API + path, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-  }).then(r => r.json());
+  }).then(async r => {
+    // 断られたときは失敗として扱う（画面だけ切り替わって、サーバーに登録が残るのを防ぐ）
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || r.status);
+    return j;
+  });
+
+  // 最後にサーバーへ登録した購読情報。端末側の登録が取れなくなっても、これで解除を送れる
+  let pushSub = null;
+  try { pushSub = JSON.parse(localStorage.getItem("pushSub") || "null"); } catch (e) {}
+  const saveSub = s => {
+    pushSub = s;
+    try { s ? localStorage.setItem("pushSub", JSON.stringify(s)) : localStorage.removeItem("pushSub"); } catch (e) {}
+  };
+  const saveTargets = t => {
+    targets = t;
+    try { localStorage.setItem("targets", JSON.stringify(targets)); } catch (e) {}
+  };
+
+  // サーバーとのやり取りは1本ずつ順番に（古い内容が後から届いて上書きしないように）
+  let chain = Promise.resolve();
+  const queue = fn => (chain = chain.then(fn).catch(() => {}));
+
+  // サーバーの通知先を next にそろえる。端末側の登録が無いときは false を返す
+  async function syncTargets(next, create) {
+    const sub = await getSubscription(create);
+    if (!sub) {
+      if (pushSub) { await post("/unsubscribe", { subscription: pushSub }); saveSub(null); }
+      return false;
+    }
+    const s = sub.toJSON();
+    // 登録し直して届け先が変わっていたら、古い届け先はサーバーから消す
+    if (pushSub && pushSub.endpoint !== s.endpoint) {
+      await post("/unsubscribe", { subscription: pushSub }).catch(() => {});
+      saveSub(null);
+    }
+    await post("/subscribe", { subscription: s, targets: next });
+    saveSub(next.length ? s : null);
+    return true;
+  }
 
   async function toggle(k) {
     if (!pushOK || (isIOS && !standalone)) { notifyBox("guide"); document.getElementById("notify-box").scrollIntoView({ behavior: "smooth" }); return; }
-    if (Notification.permission !== "granted") {
+    const adding = !targets.includes(k);
+    // 許可を求めるのは通知を増やすときだけ（解除は許可がなくてもできるように）
+    if (adding && Notification.permission !== "granted") {
       const p = await Notification.requestPermission();
       if (p !== "granted") { notifyBox("denied"); return; }
     }
-    const next = targets.includes(k) ? targets.filter(t => t !== k) : [...targets, k];
-    try {
-      const sub = await getSubscription(next.length > 0);
-      if (sub) await post("/subscribe", { subscription: sub.toJSON(), targets: next });
-      targets = next;
-      try { localStorage.setItem("targets", JSON.stringify(targets)); } catch (e) {}
-      render(); notifyBox();
-    } catch (e) {
-      notifyBox("error");
-    }
+    queue(async () => {
+      const next = adding ? [...targets.filter(t => t !== k), k] : targets.filter(t => t !== k);
+      try {
+        await syncTargets(next, next.length > 0);
+        saveTargets(next);
+        render(); notifyBox();
+      } catch (e) {
+        notifyBox("error");
+      }
+    });
   }
 
   async function sendTest() {
@@ -440,7 +481,9 @@
     } else if (mode === "denied" || (pushOK && Notification.permission === "denied")) {
       el.innerHTML = `<b>通知が許可されていません。</b><br>iPhoneの「設定」→「通知」→「奄美運航」で通知をオンにしてください。`;
     } else if (mode === "error") {
-      el.innerHTML = `<b>うまく設定できませんでした。</b><br>電波の良い場所で、もう一度お試しください。`;
+      el.innerHTML = `<b>うまく設定できませんでした。</b><br>電波の良い場所で、もう一度お試しください。止まらないときは、iPhoneの「設定」→「通知」→「奄美運航」でオフにできます。`;
+    } else if (mode === "expired") {
+      el.innerHTML = `<b>通知の登録が切れていました。</b><br>お手数ですが、乗る便の「🔕 通知する」をもう一度押してください。`;
     } else if (targets.length) {
       el.innerHTML = `<b>🔔 ${targets.length}件の便を通知中です。</b><br>運航状況が変わると、この端末にお知らせが届きます。やめるときは、便の「🔔 通知中」を押してください。
         <div><button class="btn" id="test-btn">テスト通知を送る</button> <span id="test-result"></span></div>`;
@@ -647,6 +690,17 @@
   }));
   render();
   notifyBox();
+
+  // 開くたびに、画面の通知の状態をサーバーへ送り直してそろえる（解除が届かなかった場合も、次に開けば直る）
+  if (pushOK && (standalone || !isIOS)) queue(async () => {
+    try {
+      if (!(await syncTargets(targets, false)) && targets.length) {
+        // 端末側の登録が消えていて通知は届かないので、画面も「通知する」に戻す
+        saveTargets([]);
+        render(); notifyBox("expired");
+      }
+    } catch (e) {}
+  });
 
   // 利用者数を数えるため、端末ごとのランダムな番号だけを送る（1日1回）
   try {
