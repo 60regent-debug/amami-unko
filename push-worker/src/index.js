@@ -436,7 +436,10 @@ async function checkAndNotify(env) {
   // 便の一覧が読めなかった回は、前回の状態を残す（次に読めたときに切り替わりを見分けられるように）
   // 覚えるのは「済みかどうか」だけ（状態の文言まで覚えると、運航中は毎回KVに書き込むことになる）
   const flMeta = flights.length ? { day, done: Object.fromEntries(flights.filter((f) => isDone(f.status)).map((f) => [f.id, 1])) } : { ...(prevFl || {}), day };
+  // 切り替えた時刻を残す（空港のページが何時に翌日分になるかを後で確かめるため。/status.json の flights.rolled）
+  flMeta.rolled = prevFl && prevFl.day !== day ? data.generated_at : prevFl?.rolled || "";
   if (prevFl && prevFl.day !== day) console.log("空港の一覧の日付を切り替え", prevFl.day, "→", day, data.generated_at);
+  data.flights.rolled = flMeta.rolled;
   data.flights.day = day;
   await env.SUBS.put("status", JSON.stringify(data));
   // 利用者数は運航情報を保存したあとに（失敗しても通知の処理は続ける）

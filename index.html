@@ -485,7 +485,7 @@
     } else if (mode === "expired") {
       el.innerHTML = `<b>通知の登録が切れていました。</b><br>お手数ですが、乗る便の「🔕 通知する」をもう一度押してください。`;
     } else if (targets.length) {
-      el.innerHTML = `<b>🔔 ${targets.length}件の便を通知中です。</b><br>運航状況が変わると、この端末にお知らせが届きます。やめるときは、便の「🔔 通知中」を押してください。
+      el.innerHTML = `<b>🔔 ${targets.length}件の便を通知中です。</b><br>運航状況が変わると、この端末にお知らせが届きます。やめるときは、便の「🔔 通知中」を押してください。<br><small>※ 飛行機はその日の便だけ（翌日には自動で外れます）。船は外すまで毎日続きます。</small>
         <div><button class="btn" id="test-btn">テスト通知を送る</button> <span id="test-result"></span></div>`;
       document.getElementById("test-btn").onclick = sendTest;
     } else {
