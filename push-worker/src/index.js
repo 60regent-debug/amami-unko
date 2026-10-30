@@ -251,6 +251,26 @@ function jstNow() {
   return d.toISOString().slice(0, 16).replace("T", " ");
 }
 
+const nextDay = (day) => new Date(Date.parse(day + "T00:00:00Z") + 86400 * 1000).toISOString().slice(0, 10);
+const mdOf = (day) => `${+day.slice(5, 7)}/${+day.slice(8, 10)}`;
+
+// 空港のページには日付が書かれていないので、一覧が何日のものかをここで決める。
+// 前回「〜済み」だった便が5便以上あり、その8割以上が済みでなくなったら、次の日の一覧に切り替わったとみなす
+// （欠航は数えない＝台風で連日欠航でも見分けられる。1便の欠航取消などでは切り替えない）。
+// （便名は毎日同じなので、日付を付けないと前日の状態と比べて通知したり、前日に選んだ便が毎日通知されたりする）
+const isDone = (s) => /済み/.test(s || "");
+
+function flightDay(prev, flights, now) {
+  const today = now.slice(0, 10), hour = +now.slice(11, 13);
+  if (!prev || !prev.day) return today;
+  const done = prev.done || {};
+  const was = flights.filter((f) => done[f.id]);
+  const reset = was.length >= 5 && was.filter((f) => !isDone(f.status)).length >= was.length * 0.8;
+  if (reset) return prev.day < today ? today : prev.day === today ? nextDay(today) : prev.day;  // 時刻に関係なく切り替える
+  if (prev.day < today && hour >= 7) return today;   // 切り替わりが見えないまま朝7時になったら今日とみなす（始発は8時台）
+  return prev.day;
+}
+
 async function scrapeAll(env) {
   const items = [], errors = [];
   for (const [name, url, parser] of [["マルエーフェリー・奄美海運", ALINE_URL, parseAline], ["マリックスライン", MARIX_URL, parseMarix]]) {
@@ -299,7 +319,8 @@ function vapid(env) {
 // 1件送る。届け先が無効（解除済み等）なら false
 async function send(env, subscription, message) {
   const payload = await buildPushPayload(
-    { data: JSON.stringify(message), options: { ttl: 6 * 3600 } },
+    // 電波の届かない間に溜まった古いお知らせが、何時間も後に届かないように（2時間で捨てる）
+    { data: JSON.stringify(message), options: { ttl: 2 * 3600 } },
     subscription,
     vapid(env),
   );
@@ -407,6 +428,16 @@ async function checkAndNotify(env) {
   // 全社とも読めなかったときは、前回の情報を残して通知もしない
   const got = data.items.filter((i) => i.level !== "unknown").length;
   if (!got) { console.log("読み取り失敗", data.errors); return; }
+
+  const prev = JSON.parse((await env.SUBS.get("state")) || "null");
+  const flights = [...(data.flights?.arrivals || []), ...(data.flights?.departures || [])];
+  const prevFl = prev && prev._flights;
+  const day = flightDay(prevFl, flights, data.generated_at);
+  // 便の一覧が読めなかった回は、前回の状態を残す（次に読めたときに切り替わりを見分けられるように）
+  // 覚えるのは「済みかどうか」だけ（状態の文言まで覚えると、運航中は毎回KVに書き込むことになる）
+  const flMeta = flights.length ? { day, done: Object.fromEntries(flights.filter((f) => isDone(f.status)).map((f) => [f.id, 1])) } : { ...(prevFl || {}), day };
+  if (prevFl && prevFl.day !== day) console.log("空港の一覧の日付を切り替え", prevFl.day, "→", day, data.generated_at);
+  data.flights.day = day;
   await env.SUBS.put("status", JSON.stringify(data));
   // 利用者数は運航情報を保存したあとに（失敗しても通知の処理は続ける）
   try { await countActive(env); } catch (e) { console.log("利用者数を数えられません", e.message); }
@@ -423,15 +454,17 @@ async function checkAndNotify(env) {
     text[k] = (text[k] ? text[k] + "\n" : "") + `${name}：${it.label}${it.headline ? "（" + it.headline + "）" : ""}`;
   }
 
-  for (const f of [...(data.flights?.arrivals || []), ...(data.flights?.departures || [])]) {
-    now[f.id] = [f.level, f.level === "normal" ? "" : f.status, f.changed].join("/");
+  // 飛行機は「便名@日付」で区別する（日付が変わった最初の回は前回に無いので通知しない）
+  for (const f of flights) {
+    const k = `${f.id}@${day}`;
+    now[k] = [f.level, f.level === "normal" ? "" : f.status, f.changed].join("/");
     const dir = f.id.startsWith("air-a") ? `${f.place}発` : `${f.place}行き`;
-    text[f.id] = `✈️ ${f.airline} ${f.flight}（${f.time} ${dir}）：${f.level === "normal" ? "通常どおり" : f.status}${f.changed ? `・変更後 ${f.changed}` : ""}`;
+    text[k] = `✈️ ${mdOf(day)} ${f.airline} ${f.flight}便（${f.time} ${dir}）：${f.level === "normal" ? "通常どおり" : f.status}${f.changed ? `・変更後 ${f.changed}` : ""}`;
   }
 
-  const prev = JSON.parse((await env.SUBS.get("state")) || "null");
   const changed = prev ? Object.keys(now).filter((k) => !quiet.has(k) && (k in prev || k === "setouchi") && prev[k] !== now[k]) : [];
-  if (JSON.stringify(prev) !== JSON.stringify(now)) await env.SUBS.put("state", JSON.stringify(now));
+  const state = { ...now, _flights: flMeta };
+  if (JSON.stringify(prev) !== JSON.stringify(state)) await env.SUBS.put("state", JSON.stringify(state));
   if (!changed.length) return;
 
   let cursor;
@@ -443,7 +476,7 @@ async function checkAndNotify(env) {
       const hits = changed.filter((k) => rec.targets.includes(k));
       if (!hits.length) continue;
       const ok = await send(env, rec.subscription, {
-        title: "運航状況が変わりました",
+        title: `運航状況が変わりました（${mdOf(data.generated_at)} ${data.generated_at.slice(11, 16)}時点）`,
         body: hits.map((k) => text[k]).join("\n"),
         url: APP_URL,
       });

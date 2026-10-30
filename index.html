@@ -619,14 +619,19 @@
   let flKind = "departures", showDone = false;
   try { flKind = localStorage.getItem("flKind") || flKind; } catch (e) {}
 
+  // 飛行機の通知は「便名@日付」でその日だけ（便名は毎日同じなので、日付が無いと翌日以降も通知が続く）
+  const flightKey = f => data.flights.day ? `${f.id}@${data.flights.day}` : "";
+
   function flightRow(f) {
     const done = /済み/.test(f.status);
     const dir = flKind === "arrivals" ? `${esc(f.place)}から` : `${esc(f.place)}行き`;
     const when = f.changed ? `<s>${esc(f.time)}</s>${esc(f.changed)}` : esc(f.time);
+    const k = flightKey(f);
+    // 終わった便でも、通知中なら解除できるようにボタンを残す
     return `<div class="flight ${CLS[f.level] || "s-none"}${done ? " done" : ""}">
       <div><span class="when">${when}</span><span class="where">${dir}</span><div class="who">${esc(f.airline)}　${esc(f.flight)}便</div></div>
       <span class="label">${esc(f.status)}</span>
-      ${done ? "" : `<span></span>${bellButton(f.id)}`}
+      ${k && (!done || targets.includes(k)) ? `<span></span>${bellButton(k)}` : ""}
     </div>`;
   }
 
@@ -702,6 +707,17 @@
     } catch (e) {}
   });
 
+  // 前の日に選んだ飛行機の通知（日付の無い旧形式も）は外して、サーバーにもそろえる
+  function dropOldFlights() {
+    const day = data && data.flights && data.flights.day;
+    if (!day) return;
+    const keep = targets.filter(t => !t.startsWith("air-") || t.endsWith("@" + day));
+    if (keep.length === targets.length) return;
+    saveTargets(keep);
+    notifyBox();
+    if (pushOK && (standalone || !isIOS)) queue(async () => { try { await syncTargets(targets, false); } catch (e) {} });
+  }
+
   // 利用者数を数えるため、端末ごとのランダムな番号だけを送る（1日1回）
   try {
     let u = localStorage.getItem("uid");
@@ -718,6 +734,7 @@
     .catch(() => fetch("status.json?" + Date.now()).then(r => r.json()))
     .then(d => {
       data = d;
+      dropOldFlights();
       const stamp = document.getElementById("stamp");
       stamp.textContent = d.generated_at.replace(/^\d{4}-(\d{2})-(\d{2})/, (_, m, dd) => `${+m}月${+dd}日`) + " 時点の情報";
       const age = (Date.now() - new Date(d.generated_at.replace(" ", "T") + ":00+09:00")) / 60000;
