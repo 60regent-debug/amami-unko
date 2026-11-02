@@ -260,15 +260,22 @@ const mdOf = (day) => `${+day.slice(5, 7)}/${+day.slice(8, 10)}`;
 // （便名は毎日同じなので、日付を付けないと前日の状態と比べて通知したり、前日に選んだ便が毎日通知されたりする）
 const isDone = (s) => /済み/.test(s || "");
 
+// 返り値は [日付, 理由]（理由は切り替えの記録用。変わらないときは ""）
+// 2026-11-02修正：以前は「切り替わり＝前回の日付の翌日」としていたため、一度先にずれると戻らなかった
+// （11/2 0時に11/3扱いになっていた）。今は日付を時刻から決め、前回の日付には頼らない。
 function flightDay(prev, flights, now) {
   const today = now.slice(0, 10), hour = +now.slice(11, 13);
-  if (!prev || !prev.day) return today;
+  if (!prev || !prev.day) return [today, "初回"];
   const done = prev.done || {};
   const was = flights.filter((f) => done[f.id]);
   const reset = was.length >= 5 && was.filter((f) => !isDone(f.status)).length >= was.length * 0.8;
-  if (reset) return prev.day < today ? today : prev.day === today ? nextDay(today) : prev.day;  // 時刻に関係なく切り替える
-  if (prev.day < today && hour >= 7) return today;   // 切り替わりが見えないまま朝7時になったら今日とみなす（始発は8時台）
-  return prev.day;
+  // 切り替わりが見えたら、夕方18時以降なら翌日の一覧、それより前（0時台など）なら今日の一覧
+  if (reset) return [hour >= 18 ? nextDay(today) : today, "切り替わり"];
+  // あり得る日付の上限（18時より前は今日まで、18時以降は翌日まで）。超えていたら直す＝ずれても次の回で戻る
+  const max = hour >= 18 ? nextDay(today) : today;
+  if (prev.day > max) return [max, "先へのずれを補正"];
+  if (prev.day < today && hour >= 7) return [today, "朝7時"];   // 切り替わりが見えないまま朝7時になったら今日とみなす（始発は8時台）
+  return [prev.day, ""];
 }
 
 async function scrapeAll(env) {
@@ -432,14 +439,18 @@ async function checkAndNotify(env) {
   const prev = JSON.parse((await env.SUBS.get("state")) || "null");
   const flights = [...(data.flights?.arrivals || []), ...(data.flights?.departures || [])];
   const prevFl = prev && prev._flights;
-  const day = flightDay(prevFl, flights, data.generated_at);
+  const [day, why] = flightDay(prevFl, flights, data.generated_at);
   // 便の一覧が読めなかった回は、前回の状態を残す（次に読めたときに切り替わりを見分けられるように）
   // 覚えるのは「済みかどうか」だけ（状態の文言まで覚えると、運航中は毎回KVに書き込むことになる）
   const flMeta = flights.length ? { day, done: Object.fromEntries(flights.filter((f) => isDone(f.status)).map((f) => [f.id, 1])) } : { ...(prevFl || {}), day };
   // 切り替えた時刻を残す（空港のページが何時に翌日分になるかを後で確かめるため。/status.json の flights.rolled）
-  flMeta.rolled = prevFl && prevFl.day !== day ? data.generated_at : prevFl?.rolled || "";
-  if (prevFl && prevFl.day !== day) console.log("空港の一覧の日付を切り替え", prevFl.day, "→", day, data.generated_at);
+  const moved = prevFl && prevFl.day !== day;
+  flMeta.rolled = moved ? data.generated_at : prevFl?.rolled || "";
+  // 直近14回の切り替えの記録（いつ・何日→何日・なぜ）。ずれたときに後から原因を追えるように
+  flMeta.hist = [...(prevFl?.hist || []), ...(moved ? [`${data.generated_at} ${prevFl.day}→${day} ${why}`] : [])].slice(-14);
+  if (moved) console.log("空港の一覧の日付を切り替え", prevFl.day, "→", day, why, data.generated_at);
   data.flights.rolled = flMeta.rolled;
+  data.flights.hist = flMeta.hist;
   data.flights.day = day;
   await env.SUBS.put("status", JSON.stringify(data));
   // 利用者数は運航情報を保存したあとに（失敗しても通知の処理は続ける）
