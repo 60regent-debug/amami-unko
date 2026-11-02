@@ -256,9 +256,10 @@ const mdOf = (day) => `${+day.slice(5, 7)}/${+day.slice(8, 10)}`;
 
 // 空港のページには日付が書かれていないので、一覧が何日のものかをここで決める。
 // 前回「〜済み」だった便が5便以上あり、その8割以上が済みでなくなったら、次の日の一覧に切り替わったとみなす
-// （欠航は数えない＝台風で連日欠航でも見分けられる。1便の欠航取消などでは切り替えない）。
+// （欠航も「済み」に数える＝台風で全便欠航の翌日も0時の切り替えを見分けられる〔2026-11-02 Opus検証〕。
+//   連日欠航なら済みのままなので切り替えとは見なさず、朝7時に今日扱い。1便の欠航取消などでは切り替えない）。
 // （便名は毎日同じなので、日付を付けないと前日の状態と比べて通知したり、前日に選んだ便が毎日通知されたりする）
-const isDone = (s) => /済み/.test(s || "");
+const isDone = (s) => /済み|欠航/.test(s || "");
 
 // 返り値は [日付, 理由]（理由は切り替えの記録用。変わらないときは ""）
 // 2026-11-02修正：以前は「切り替わり＝前回の日付の翌日」としていたため、一度先にずれると戻らなかった
@@ -476,7 +477,9 @@ async function checkAndNotify(env) {
     text[k] = `✈️ ${mdOf(day)} ${f.airline} ${f.flight}便（${f.time} ${dir}）：${f.level === "normal" ? "通常どおり" : f.status}${f.changed ? `・変更後 ${f.changed}` : ""}`;
   }
 
-  const changed = prev ? Object.keys(now).filter((k) => !quiet.has(k) && (k in prev || k === "setouchi") && prev[k] !== now[k]) : [];
+  // 一覧が切り替わった回は、日付が動かなくても前日の一覧と比べることになるので飛行機の通知は出さない（2026-11-02 Opus検証）
+  const rollover = why === "切り替わり";
+  const changed = prev ? Object.keys(now).filter((k) => !quiet.has(k) && !(rollover && k.includes("@")) && (k in prev || k === "setouchi") && prev[k] !== now[k]) : [];
   const state = { ...now, _flights: flMeta };
   if (JSON.stringify(prev) !== JSON.stringify(state)) await env.SUBS.put("state", JSON.stringify(state));
   if (!changed.length) return;
