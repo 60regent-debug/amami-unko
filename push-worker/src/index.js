@@ -29,6 +29,13 @@ async function getPage(url) {
   return r.text();
 }
 
+// お知らせ文から「いつ・どこ発・上り下り」の便を取り出す（書き方が違って取れない日は空のまま＝画面はお知らせ文だけ）
+function tripsOf(text) {
+  const re = /(\d{1,2})[\/月](\d{1,2})日?\s*(?:\(([月火水木金土日])\))?\s*([^\s\/、,。()]{1,8}?)\s*(\d{1,2}:\d{2})?発\s*[\/・]?\s*(上り|下り)便?/g;
+  return [...new Set([...(text || "").matchAll(re)].map(([, mo, d, w, port, time, dir]) =>
+    `${mo}/${d}${w ? `(${w})` : ""} ${port}${time ? " " + time : ""}発 ${dir}便`))];
+}
+
 function parseAline(page) {
   const items = [];
   for (const block of page.split('<div class="status-archive">').slice(1)) {
@@ -40,10 +47,11 @@ function parseAline(page) {
     const label = tags.join(" / ") || "不明";
     const h4 = block.match(/<h4>([\s\S]*?)<\/h4>/);
     const upd = block.match(/<time datetime="([^"]+)"/);
+    const headline = h4 ? clean(h4[1]).split(/\s*■\s*/).filter(Boolean).join("\n") : "";
     items.push({
       id: "aline-" + ship, operator: ALINE_SHIPS[ship], ship, ports: SHIP_PORTS[ship] || ["名瀬港"],
       route: clean(m[2]), label, level: levelOf(label),
-      headline: h4 ? clean(h4[1]).split(/\s*■\s*/).filter(Boolean).join("\n") : "", updated: upd ? upd[1] : "", url: ALINE_URL,
+      headline, trips: tripsOf(headline), updated: upd ? upd[1] : "", url: ALINE_URL,
     });
   }
   return items;
@@ -73,12 +81,37 @@ function parseMarix(page) {
         const label = exp ? clean(exp[1]) : "不明";
         const ports = [...a[2].matchAll(/<div class="port_information[^"]*">([\s\S]*?)<\/div>/g)]
           .map((x) => clean(x[1]).replace(/\d{4}年(\d{1,2})月(\d{1,2})日/g, "$1/$2"));
-        items.push({ id, operator: "マリックスライン", ship: "", ports: ["名瀬港"], route, label, level: levelOf(label), headline: ports.join(" → "), updated: "", url: safeMarixUrl(a[1]) });
+        const dir = id === "marix-down" ? "下り" : "上り";
+        const trips = /発$/.test(ports[0] || "") ? [`${ports[0]} ${dir}便${ports[1] ? `（${ports[1]}）` : ""}`] : [];
+        items.push({ id, operator: "マリックスライン", ship: "", ports: ["名瀬港"], route, label, level: levelOf(label), headline: ports.join(" → "), trips, noteInTrip: trips.length > 0, updated: "", url: safeMarixUrl(a[1]) });
       }
     }
   }
   if (!items.length) items.push({ id: "marix-none", operator: "マリックスライン", ship: "", ports: ["名瀬港"], route: "鹿児島 - 奄美群島 - 那覇", label: "掲載なし", level: "unknown", headline: "最新の運航状況に掲載されている便がありません", updated: "", url: MARIX_URL });
   return items;
+}
+
+// マリックスの船名は各便の詳細ページにしかない。詳細ページは1枚約1MBなので、読んだ結果を6時間とっておく。
+// 取れなくても便の表示は止めない（船名なし＝会社名だけの表示に戻るだけ）
+function parseMarixShip(page) {
+  const m = page.match(/<h1 class="heading1">[\s\S]*?<\/h1>\s*<h4>\s*([^<]+?)\s*<\/h4>/);
+  const ship = m ? clean(m[1]) : "";
+  return /^クイーンコーラル/.test(ship) ? ship : "";
+}
+
+async function addMarixShips(items, env) {
+  for (const it of items) {
+    if (!it.id.startsWith("marix-") || it.url === MARIX_URL) continue;
+    try {
+      const key = "marixship:" + new URL(it.url).pathname;
+      let ship = await env.SUBS.get(key);
+      if (!ship) {
+        ship = parseMarixShip(await getPage(it.url));
+        if (ship) await env.SUBS.put(key, ship, { expirationTtl: 21600 });
+      }
+      it.ship = ship || "";
+    } catch {}
+  }
 }
 
 // ── 奄美空港（公式「本日の運航状況」）──
@@ -288,6 +321,7 @@ async function scrapeAll(env) {
       items.push(...got);
     } catch (e) { errors.push(`${name}: ${e.message}`); }
   }
+  await addMarixShips(items, env);
   let flights = { arrivals: [], departures: [], url: AIRPORT_URL };
   try {
     flights = { ...parseAirport(await getPage(AIRPORT_URL)), url: AIRPORT_URL };

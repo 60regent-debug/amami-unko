@@ -222,6 +222,7 @@
   .label { font-weight: 700; font-size: 18px; color: var(--c); background: var(--bg); white-space: nowrap; padding: 3px 10px; border-radius: 8px; letter-spacing: .04em; justify-self: start; }
   .route { grid-column: 2; font-size: 17px; font-weight: 500; color: var(--ink-3); letter-spacing: .02em; margin-top: 4px; }
   .route b { color: var(--ink); font-weight: 700; }
+  .trip { grid-column: 2; font-size: 19px; font-weight: 700; color: var(--ink); line-height: 1.5; margin-top: 4px; }
   .note-line { grid-column: 2; font-size: 19px; font-weight: 500; color: var(--ink); line-height: 1.6; white-space: pre-line; }
   .actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .btn {
@@ -542,7 +543,8 @@
         <span class="label">${esc(it.label)}</span>
         <span class="ship">${esc(name)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>
         <span class="route">${route}</span>
-        ${it.headline ? `<span class="note-line">${esc(it.headline)}</span>` : ""}
+        ${(it.trips || []).map(t => `<span class="trip">${esc(t)}</span>`).join("")}
+        ${it.headline && !it.noteInTrip ? `<span class="note-line">${esc(it.headline)}</span>` : ""}
         ${it.updated ? `<span class="upd">${esc(it.updated)} 更新</span>` : ""}
         <span class="actions">
           ${it.level !== "unknown" || it.id === "setouchi" ? bellButton(keyOf(it)) : ""}
