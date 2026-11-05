@@ -2,14 +2,14 @@
 // ・/subscribe   通知の届け先（ブラウザの購読情報）と、通知してほしい便を保存
 // ・/unsubscribe 届け先を削除
 // ・/test        その届け先にテスト通知を送る
-// ・15分おき     公開中の status.json を読み、前回から変わった便を、その便を選んだ人に通知
+// ・15分おき     各社の公開ページを読んで status を作り、前回から変わった便を、その便を選んだ人に通知
 import { buildPushPayload } from "@block65/webcrypto-web-push";
 import PostalMime from "postal-mime";
 
 const APP_URL = "https://60regent-debug.github.io/amami-unko/";
 const ALLOWED_ORIGINS = ["https://60regent-debug.github.io", "http://127.0.0.1:8765"];
 
-// ── 各社ページの読み取り（fetch_status.py と同じ方針：区分＋短い見出し＋公式リンクのみ） ──
+// ── 各社ページの読み取り（区分＋短い見出し＋公式リンクのみ。便の見出し・マリックスの船名はここだけで、予備の fetch_status.py には無い） ──
 const ALINE_URL = "https://www.aline-ferry.com/status";
 const MARIX_URL = "https://marixline.com/service/";
 const SETOUCHI_X_URL = "https://x.com/st_liner_info";
@@ -23,16 +23,23 @@ const unescapeHtml = (t) => t
 const clean = (t) => unescapeHtml(t.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "")).normalize("NFKC").replace(/\s+/g, " ").trim();
 const levelOf = (label) => /欠航|運休/.test(label) ? "cancel" : /通常/.test(label) ? "normal" : "caution";
 
-async function getPage(url) {
-  const r = await fetch(url, { headers: { "User-Agent": UA } });
+async function getPage(url, timeoutMs) {
+  const r = await fetch(url, { headers: { "User-Agent": UA }, signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined });
   if (!r.ok) throw new Error("HTTP " + r.status);
   return r.text();
 }
 
-// お知らせ文から「いつ・どこ発・上り下り」の便を取り出す（書き方が違って取れない日は空のまま＝画面はお知らせ文だけ）
+// お知らせ文から「いつ・どこ発・上り下り」の便を取り出す。誤った便を太字で出すより出さないほうがよいので、
+// 港は航路の港だけに限り、文中の日付・上り下りの数と取り出した便の数が合わないときは何も返さない（画面はお知らせ文だけ）
+const TRIP_PORT = "(?:鹿児島(?:新港|本港)?|喜界|名瀬|古仁屋|平土野|亀徳|和泊|与論|本部|那覇)港?";
+const TRIP_RE = new RegExp(`(\\d{1,2})[/月](\\d{1,2})(?!\\d)日?\\s*(?:\\(([月火水木金土日])\\))?\\s*(${TRIP_PORT})\\s*(\\d{1,2}:\\d{2})?発\\s*[/・]?\\s*(上り|下り)便?`, "g");
 function tripsOf(text) {
-  const re = /(\d{1,2})[\/月](\d{1,2})日?\s*(?:\(([月火水木金土日])\))?\s*([^\s\/、,。()]{1,8}?)\s*(\d{1,2}:\d{2})?発\s*[\/・]?\s*(上り|下り)便?/g;
-  return [...new Set([...(text || "").matchAll(re)].map(([, mo, d, w, port, time, dir]) =>
+  const t = text || "";
+  const found = [...t.matchAll(TRIP_RE)];
+  const dates = t.match(/\d{1,2}[\/月]\d{1,2}(?![\d:])/g) || [];
+  const dirs = t.match(/上り|下り/g) || [];
+  if (found.length !== dates.length || found.length !== dirs.length) return [];
+  return [...new Set(found.map(([, mo, d, w, port, time, dir]) =>
     `${mo}/${d}${w ? `(${w})` : ""} ${port}${time ? " " + time : ""}発 ${dir}便`))];
 }
 
@@ -83,7 +90,7 @@ function parseMarix(page) {
           .map((x) => clean(x[1]).replace(/\d{4}年(\d{1,2})月(\d{1,2})日/g, "$1/$2"));
         const dir = id === "marix-down" ? "下り" : "上り";
         const trips = /発$/.test(ports[0] || "") ? [`${ports[0]} ${dir}便${ports[1] ? `（${ports[1]}）` : ""}`] : [];
-        items.push({ id, operator: "マリックスライン", ship: "", ports: ["名瀬港"], route, label, level: levelOf(label), headline: ports.join(" → "), trips, noteInTrip: trips.length > 0, updated: "", url: safeMarixUrl(a[1]) });
+        items.push({ id, operator: "マリックスライン", ship: "", ports: ["名瀬港"], route, label, level: levelOf(label), headline: ports.join(" → "), trips, noteInTrip: trips.length > 0 && ports.length <= 2, updated: "", url: safeMarixUrl(a[1]) });
       }
     }
   }
@@ -91,26 +98,38 @@ function parseMarix(page) {
   return items;
 }
 
-// マリックスの船名は各便の詳細ページにしかない。詳細ページは1枚約1MBなので、読んだ結果を6時間とっておく。
-// 取れなくても便の表示は止めない（船名なし＝会社名だけの表示に戻るだけ）
+// マリックスの船名は各便の詳細ページにしかない。詳細ページは1枚約1MBなので、読めた船名は6時間とっておき、
+// 読めなかったときも1時間は取りに行かない（相手の負担を増やさない）。
+// 取れなくても便の表示は止めない（船名なし＝会社名だけの表示に戻るだけ。応答が無いときは8秒で打ち切る）
 function parseMarixShip(page) {
   const m = page.match(/<h1 class="heading1">[\s\S]*?<\/h1>\s*<h4>\s*([^<]+?)\s*<\/h4>/);
   const ship = m ? clean(m[1]) : "";
   return /^クイーンコーラル/.test(ship) ? ship : "";
 }
 
-async function addMarixShips(items, env) {
+const NO_SHIP = "-"; // 読めなかった印
+async function addMarixShips(items, env, warnings) {
   for (const it of items) {
     if (!it.id.startsWith("marix-") || it.url === MARIX_URL) continue;
     try {
       const key = "marixship:" + new URL(it.url).pathname;
       let ship = await env.SUBS.get(key);
       if (!ship) {
-        ship = parseMarixShip(await getPage(it.url));
+        let why = "";
+        try {
+          ship = parseMarixShip(await getPage(it.url, 8000));
+          if (!ship) why = "船名を読み取れない（ページの形が変わったか、別の船の可能性）";
+        } catch (e) { why = e.message; }
         if (ship) await env.SUBS.put(key, ship, { expirationTtl: 21600 });
+        else {
+          await env.SUBS.put(key, NO_SHIP, { expirationTtl: 3600 });
+          ship = NO_SHIP;
+          console.log("マリックスの船名の取得失敗", it.url, why);
+        }
       }
-      it.ship = ship || "";
-    } catch {}
+      if (ship === NO_SHIP) warnings.push(`マリックスの船名なし: ${it.id}`);
+      else it.ship = ship;
+    } catch (e) { warnings.push(`マリックスの船名なし: ${it.id}`); console.log("マリックスの船名の取得失敗", it.url, e.message); }
   }
 }
 
@@ -313,7 +332,7 @@ function flightDay(prev, flights, now) {
 }
 
 async function scrapeAll(env) {
-  const items = [], errors = [];
+  const items = [], errors = [], warnings = []; // warnings は画面に出さない（errors は「取得できませんでした」の表示になる）
   for (const [name, url, parser] of [["マルエーフェリー・奄美海運", ALINE_URL, parseAline], ["マリックスライン", MARIX_URL, parseMarix]]) {
     try {
       const got = parser(await getPage(url));
@@ -321,7 +340,7 @@ async function scrapeAll(env) {
       items.push(...got);
     } catch (e) { errors.push(`${name}: ${e.message}`); }
   }
-  await addMarixShips(items, env);
+  await addMarixShips(items, env, warnings);
   let flights = { arrivals: [], departures: [], url: AIRPORT_URL };
   try {
     flights = { ...parseAirport(await getPage(AIRPORT_URL)), url: AIRPORT_URL };
@@ -330,7 +349,7 @@ async function scrapeAll(env) {
   items.push(await setouchiItem(env));
   // 天気は取れなくても運航情報の「取得できませんでした」には含めない
   const weather = await fetchWeather();
-  return { generated_at: jstNow(), items, flights, weather, errors };
+  return { generated_at: jstNow(), items, flights, weather, errors, warnings };
 }
 
 // マリックスは上り・下りをまとめて1つの通知対象にする
