@@ -23,22 +23,26 @@ const unescapeHtml = (t) => t
 const clean = (t) => unescapeHtml(t.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "")).normalize("NFKC").replace(/\s+/g, " ").trim();
 const levelOf = (label) => /欠航|運休/.test(label) ? "cancel" : /通常/.test(label) ? "normal" : "caution";
 
-async function getPage(url, timeoutMs) {
-  const r = await fetch(url, { headers: { "User-Agent": UA }, signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined });
+// 相手が固まっても全体の更新を止めないよう、取得には必ず時間制限を付ける
+const FETCH_TIMEOUT = 15000;
+async function getPage(url, timeoutMs = FETCH_TIMEOUT) {
+  const r = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(timeoutMs) });
   if (!r.ok) throw new Error("HTTP " + r.status);
   return r.text();
 }
 
 // お知らせ文から「いつ・どこ発・上り下り」の便を取り出す。誤った便を太字で出すより出さないほうがよいので、
-// 港は航路の港だけに限り、文中の日付・上り下りの数と取り出した便の数が合わないときは何も返さない（画面はお知らせ文だけ）
+// 港は航路の港だけに限り、月日があり得ない値のときや、文中の日付・上り下りの数と取り出した便の数が合わないときは何も返さない（画面はお知らせ文だけ）
 const TRIP_PORT = "(?:鹿児島(?:新港|本港)?|喜界|名瀬|古仁屋|平土野|亀徳|和泊|与論|本部|那覇)港?";
-const TRIP_RE = new RegExp(`(\\d{1,2})[/月](\\d{1,2})(?!\\d)日?\\s*(?:\\(([月火水木金土日])\\))?\\s*(${TRIP_PORT})\\s*(\\d{1,2}:\\d{2})?発\\s*[/・]?\\s*(上り|下り)便?`, "g");
+const TRIP_DATE_HEAD = "(?<![\\d/])(?:\\d{4}/)?"; // 「11/5/6」「2026/11」の途中から読まない（「2026/11/5」は読む）
+const TRIP_RE = new RegExp(`${TRIP_DATE_HEAD}(\\d{1,2})[/月](\\d{1,2})(?![\\d/])日?\\s*(?:\\(([月火水木金土日])\\))?\\s*(${TRIP_PORT})\\s*(\\d{1,2}:\\d{2})?発\\s*[/・]?\\s*(上り|下り)便?`, "g");
 function tripsOf(text) {
   const t = text || "";
   const found = [...t.matchAll(TRIP_RE)];
-  const dates = t.match(/\d{1,2}[\/月]\d{1,2}(?![\d:])/g) || [];
+  const dates = t.match(new RegExp(`${TRIP_DATE_HEAD}\\d{1,2}[/月]\\d{1,2}(?![\\d:/])`, "g")) || [];
   const dirs = t.match(/上り|下り/g) || [];
   if (found.length !== dates.length || found.length !== dirs.length) return [];
+  if (found.some(([, mo, d]) => +mo < 1 || +mo > 12 || +d < 1 || +d > 31)) return [];
   return [...new Set(found.map(([, mo, d, w, port, time, dir]) =>
     `${mo}/${d}${w ? `(${w})` : ""} ${port}${time ? " " + time : ""}発 ${dir}便`))];
 }
@@ -107,29 +111,31 @@ function parseMarixShip(page) {
   return /^クイーンコーラル/.test(ship) ? ship : "";
 }
 
-const NO_SHIP = "-"; // 読めなかった印
+const NO_SHIP = "-"; // 読めなかった印（続けて理由を保存）。船名はクイーンコーラルで始まるので混ざらない
 async function addMarixShips(items, env, warnings) {
   for (const it of items) {
     if (!it.id.startsWith("marix-") || it.url === MARIX_URL) continue;
+    let why = "";
     try {
       const key = "marixship:" + new URL(it.url).pathname;
-      let ship = await env.SUBS.get(key);
-      if (!ship) {
-        let why = "";
+      const saved = await env.SUBS.get(key);
+      if (saved && saved.startsWith(NO_SHIP)) why = saved.slice(NO_SHIP.length) || "理由不明";
+      else if (saved) it.ship = saved;
+      else {
         try {
-          ship = parseMarixShip(await getPage(it.url, 8000));
-          if (!ship) why = "船名を読み取れない（ページの形が変わったか、別の船の可能性）";
-        } catch (e) { why = e.message; }
-        if (ship) await env.SUBS.put(key, ship, { expirationTtl: 21600 });
-        else {
-          await env.SUBS.put(key, NO_SHIP, { expirationTtl: 3600 });
-          ship = NO_SHIP;
-          console.log("マリックスの船名の取得失敗", it.url, why);
-        }
+          it.ship = parseMarixShip(await getPage(it.url, 8000));
+          if (!it.ship) why = "船名を読み取れない（ページの形が変わったか、別の船の可能性）";
+        } catch (e) { why = e.message || "取得失敗"; }
+        // 保存に失敗しても、読めた船名はこの回の表示に使う
+        try {
+          await env.SUBS.put(key, it.ship || NO_SHIP + why.slice(0, 80), { expirationTtl: it.ship ? 21600 : 3600 });
+        } catch (e) { console.log("マリックスの船名の保存失敗", it.url, e.message); }
       }
-      if (ship === NO_SHIP) warnings.push(`マリックスの船名なし: ${it.id}`);
-      else it.ship = ship;
-    } catch (e) { warnings.push(`マリックスの船名なし: ${it.id}`); console.log("マリックスの船名の取得失敗", it.url, e.message); }
+    } catch (e) { why = e.message || "取得失敗"; }
+    if (why) {
+      warnings.push(`マリックスの船名なし: ${it.id}（${why}）`);
+      console.log("マリックスの船名なし", it.url, why);
+    }
   }
 }
 
@@ -219,7 +225,7 @@ const jmaText = (t) => (t || "").normalize("NFKC").replace(/ただし.*$/, "").r
 const skyOf = (code) => ({ 1: "sun", 2: "cloud", 3: "rain", 4: "snow" })[String(code || "")[0]] || "cloud";
 
 async function getJson(url) {
-  const r = await fetch(url, { headers: { "User-Agent": UA } });
+  const r = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(FETCH_TIMEOUT) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
@@ -249,7 +255,7 @@ async function fetchWeather() {
     w.reported = short.reportDatetime;
   } catch (e) { w.forecastError = e.message; }
   try {
-    const latest = (await (await fetch(`${JMA_AMEDAS}/latest_time.txt`, { headers: { "User-Agent": UA } })).text()).trim();
+    const latest = (await (await fetch(`${JMA_AMEDAS}/latest_time.txt`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(FETCH_TIMEOUT) })).text()).trim();
     const block = String(Math.floor(Number(latest.slice(11, 13)) / 3) * 3).padStart(2, "0");
     const obs = await getJson(`${JMA_AMEDAS}/point/88837/${latest.slice(0, 10).replace(/-/g, "")}_${block}.json`);
     const k = Object.keys(obs).sort().pop();
