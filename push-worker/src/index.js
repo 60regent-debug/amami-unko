@@ -9,7 +9,7 @@ import PostalMime from "postal-mime";
 const APP_URL = "https://60regent-debug.github.io/amami-unko/";
 const ALLOWED_ORIGINS = ["https://60regent-debug.github.io", "http://127.0.0.1:8765"];
 
-// ── 各社ページの読み取り（区分＋短い見出し＋公式リンクのみ。便の見出し・マリックスの船名はここだけで、予備の fetch_status.py には無い） ──
+// ── 各社ページの読み取り（区分＋便の情報＋公式リンクのみ。便の情報・マリックスの船名はここだけで、予備の fetch_status.py には無い） ──
 const ALINE_URL = "https://www.aline-ferry.com/status";
 const MARIX_URL = "https://marixline.com/service/";
 const SETOUCHI_X_URL = "https://x.com/st_liner_info";
@@ -47,6 +47,12 @@ function tripsOf(text) {
     `${mo}/${d}${w ? `(${w})` : ""} ${port}${time ? " " + time : ""}発 ${dir}便`))];
 }
 
+// マルエー・奄美海運の見出しは公式の文言なので画面・通知に出さない（10/24に各社へ「文章をそのまま転載しない」と伝えた内容に合わせる。2026-11-06）。
+// 出すのは区分と、文から取り出した便の情報だけ。便を取り出せないお知らせは公式ページへ案内する。
+// 公式の文は _sig として「変化の検知」にだけ使い、status.json には保存しない
+const SEE_OFFICIAL = "詳しくは公式ページをご覧ください";
+const ROUTINE_NOTICE = /^通常通り運航しております。?$/;
+
 function parseAline(page) {
   const items = [];
   for (const block of page.split('<div class="status-archive">').slice(1)) {
@@ -58,11 +64,13 @@ function parseAline(page) {
     const label = tags.join(" / ") || "不明";
     const h4 = block.match(/<h4>([\s\S]*?)<\/h4>/);
     const upd = block.match(/<time datetime="([^"]+)"/);
-    const headline = h4 ? clean(h4[1]).split(/\s*■\s*/).filter(Boolean).join("\n") : "";
+    const notice = h4 ? clean(h4[1]).split(/\s*■\s*/).filter(Boolean).join("\n") : "";
+    const trips = tripsOf(notice);
     items.push({
       id: "aline-" + ship, operator: ALINE_SHIPS[ship], ship, ports: SHIP_PORTS[ship] || ["名瀬港"],
       route: clean(m[2]), label, level: levelOf(label),
-      headline, trips: tripsOf(headline), updated: upd ? upd[1] : "", url: ALINE_URL,
+      headline: trips.length || !notice || ROUTINE_NOTICE.test(notice) ? "" : SEE_OFFICIAL,
+      trips, _sig: notice, updated: upd ? upd[1] : "", url: ALINE_URL,
     });
   }
   return items;
@@ -512,7 +520,7 @@ async function checkAndNotify(env) {
   data.flights.rolled = flMeta.rolled;
   data.flights.hist = flMeta.hist;
   data.flights.day = day;
-  await env.SUBS.put("status", JSON.stringify(data));
+  await env.SUBS.put("status", JSON.stringify(data, (k, v) => (k === "_sig" ? undefined : v)));
   // 利用者数は運航情報を保存したあとに（失敗しても通知の処理は続ける）
   try { await countActive(env); } catch (e) { console.log("利用者数を数えられません", e.message); }
 
@@ -523,9 +531,10 @@ async function checkAndNotify(env) {
     if (it.level === "unknown" && it.id !== "setouchi") continue;
     if (it.level === "unknown") quiet.add(keyOf(it));
     const k = keyOf(it);
-    now[k] = (now[k] ? now[k] + "|" : "") + [it.level, it.label, it.headline].join("/");
+    now[k] = (now[k] ? now[k] + "|" : "") + [it.level, it.label, it._sig ?? it.headline].join("/");
     const name = it.ship || it.operator;
-    text[k] = (text[k] ? text[k] + "\n" : "") + `${name}：${it.label}${it.headline ? "（" + it.headline + "）" : ""}`;
+    const note = it.headline || (it.trips || []).join("、");
+    text[k] = (text[k] ? text[k] + "\n" : "") + `${name}：${it.label}${note ? "（" + note + "）" : ""}`;
   }
 
   // 飛行機は「便名@日付」で区別する（日付が変わった最初の回は前回に無いので通知しない）

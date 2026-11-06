@@ -83,11 +83,16 @@ def parse_aline(page):
             "route": route,
             "label": label,
             "level": level_of(label),
-            "headline": "\n".join(x for x in re.split(r"\s*■\s*", clean(h4.group(1))) if x) if h4 else "",
+            # 公式の見出しの文言は載せない（10/24に各社へ伝えた内容に合わせる。index.js の parseAline と同じ考え方）
+            "headline": aline_note(clean(h4.group(1))) if h4 else "",
             "updated": upd.group(1) if upd else "",
             "url": ALINE_URL,
         })
     return items
+
+
+def aline_note(notice):
+    return "" if re.fullmatch(r"[\s■]*(通常通り運航しております。?)?\s*", notice) else "詳しくは公式ページをご覧ください"
 
 
 def parse_marix(page):
