@@ -32,7 +32,7 @@ async function getPage(url, timeoutMs = FETCH_TIMEOUT) {
 }
 
 // お知らせ文から「いつ・どこ発・上り下り」の便を取り出す。誤った便を太字で出すより出さないほうがよいので、
-// 港は航路の港だけに限り、月日があり得ない値のときや、文中の日付・上り下りの数と取り出した便の数が合わないときは何も返さない（画面はお知らせ文だけ）
+// 港は航路の港だけに限り、月日があり得ない値のときや、文中の日付・上り下りの数と取り出した便の数が合わないときは何も返さない（画面は公式ページへの案内だけ）
 const TRIP_PORT = "(?:鹿児島(?:新港|本港)?|喜界|名瀬|古仁屋|平土野|亀徳|和泊|与論|本部|那覇)港?";
 const TRIP_DATE_HEAD = "(?<![\\d/])(?:\\d{4}/)?"; // 「11/5/6」「2026/11」の途中から読まない（「2026/11/5」は読む）
 const TRIP_RE = new RegExp(`${TRIP_DATE_HEAD}(\\d{1,2})[/月](\\d{1,2})(?![\\d/])日?\\s*(?:\\(([月火水木金土日])\\))?\\s*(${TRIP_PORT})\\s*(\\d{1,2}:\\d{2})?発\\s*[/・]?\\s*(上り|下り)便?`, "g");
@@ -48,10 +48,11 @@ function tripsOf(text) {
 }
 
 // マルエー・奄美海運の見出しは公式の文言なので画面・通知に出さない（10/24に各社へ「文章をそのまま転載しない」と伝えた内容に合わせる。2026-11-06）。
-// 出すのは区分と、文から取り出した便の情報だけ。便を取り出せないお知らせは公式ページへ案内する。
+// 出すのは区分と、文から取り出した便の情報だけ。定型以外のお知らせには、便を取り出せても公式ページへの案内を添える
+// （便ごとの結果や「再開」などの文の意味は便の情報だけでは分からないため。2026-11-06 Opus検証）。
 // 公式の文は _sig として「変化の検知」にだけ使い、status.json には保存しない
 const SEE_OFFICIAL = "詳しくは公式ページをご覧ください";
-const ROUTINE_NOTICE = /^通常通り運航しております。?$/;
+const ROUTINE_NOTICE = /^通常(?:通り)?運航(?:して|致して|いたして)おります。?$/;
 
 function parseAline(page) {
   const items = [];
@@ -69,7 +70,7 @@ function parseAline(page) {
     items.push({
       id: "aline-" + ship, operator: ALINE_SHIPS[ship], ship, ports: SHIP_PORTS[ship] || ["名瀬港"],
       route: clean(m[2]), label, level: levelOf(label),
-      headline: trips.length || !notice || ROUTINE_NOTICE.test(notice) ? "" : SEE_OFFICIAL,
+      headline: !notice || ROUTINE_NOTICE.test(notice) ? "" : SEE_OFFICIAL,
       trips, _sig: notice, updated: upd ? upd[1] : "", url: ALINE_URL,
     });
   }
@@ -197,7 +198,7 @@ async function setouchiItem(env) {
   if (rec && rec.received.slice(0, 10) === today) {
     return { ...base, label: rec.label, level: rec.level, headline: rec.headline, updated: `${rec.received.slice(5, 7)}/${rec.received.slice(8, 10)} ${rec.received.slice(11, 16)} 町の防災メール` };
   }
-  return { ...base, label: "本日の配信なし", level: "unknown", headline: "町の防災メールで今日の運航のお知らせはまだありません。公式Xもご確認ください", updated: rec ? `最後の配信 ${rec.received.slice(5, 7)}/${rec.received.slice(8, 10)}` : "" };
+  return { ...base, label: "公式Xで確認", level: "unknown", headline: "町営船の運航情報は公式Xをご確認ください", updated: rec ? `最後の配信 ${rec.received.slice(5, 7)}/${rec.received.slice(8, 10)}` : "" };
 }
 
 async function handleEmail(message, env) {
@@ -533,7 +534,7 @@ async function checkAndNotify(env) {
     const k = keyOf(it);
     now[k] = (now[k] ? now[k] + "|" : "") + [it.level, it.label, it._sig ?? it.headline].join("/");
     const name = it.ship || it.operator;
-    const note = it.headline || (it.trips || []).join("、");
+    const note = it._sig === undefined ? it.headline : [(it.trips || []).join("、"), it.headline].filter(Boolean).join(" ");
     text[k] = (text[k] ? text[k] + "\n" : "") + `${name}：${it.label}${note ? "（" + note + "）" : ""}`;
   }
 
@@ -549,6 +550,10 @@ async function checkAndNotify(env) {
   const rollover = why === "切り替わり";
   const changed = prev ? Object.keys(now).filter((k) => !quiet.has(k) && !(rollover && k.includes("@")) && (k in prev || k === "setouchi") && prev[k] !== now[k]) : [];
   const state = { ...now, _flights: flMeta };
+  // 読み取りに失敗した回は、その船の前回の状態を残す（消すと次の回に比べられず、欠航の通知が漏れる。2026-11-06 Opus検証）
+  if (prev && data.errors.length) {
+    for (const [k, v] of Object.entries(prev)) if (!(k in state) && !k.includes("@")) state[k] = v;
+  }
   if (JSON.stringify(prev) !== JSON.stringify(state)) await env.SUBS.put("state", JSON.stringify(state));
   if (!changed.length) return;
 

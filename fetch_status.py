@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """奄美の船の運航状況を各社の公式ページから読み取り、status.json に書き出す（試作版）。
 
-方針：各社の文章はそのまま転載せず、「通常／注意／欠航」の区分＋短い見出し＋公式リンクだけを出す。
+方針：各社の文章はそのまま転載せず、「通常／注意／欠航」の区分＋公式リンクだけを出す。
 標準ライブラリのみで動く。
 """
 import html
@@ -92,7 +92,9 @@ def parse_aline(page):
 
 
 def aline_note(notice):
-    return "" if re.fullmatch(r"[\s■]*(通常通り運航しております。?)?\s*", notice) else "詳しくは公式ページをご覧ください"
+    parts = [x for x in re.split(r"\s*■\s*", notice) if x]
+    text = "\n".join(parts).strip()
+    return "" if not text or re.fullmatch(r"通常(?:通り)?運航(?:して|致して|いたして)おります。?", text) else "詳しくは公式ページをご覧ください"
 
 
 def parse_marix(page):
@@ -140,7 +142,7 @@ def setouchi_placeholder():
         "route": "古仁屋 - 瀬相・生間 ほか",
         "label": "公式Xで確認",
         "level": "unknown",
-        "headline": "自動取得は準備中（町の防災情報メールから読み取る予定）",
+        "headline": "町営船の運航情報は公式Xをご確認ください",
         "updated": "",
         "url": SETOUCHI_X_URL,
     }]
