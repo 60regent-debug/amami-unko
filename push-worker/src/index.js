@@ -196,7 +196,8 @@ async function setouchiItem(env) {
   const rec = env ? JSON.parse((await env.SUBS.get("setouchi")) || "null") : null;
   const today = jstNow().slice(0, 10);
   if (rec && rec.received.slice(0, 10) === today) {
-    return { ...base, label: rec.label, level: rec.level, headline: rec.headline, updated: `${rec.received.slice(5, 7)}/${rec.received.slice(8, 10)} ${rec.received.slice(11, 16)} 町の防災メール` };
+    // 町の了解が出るまでメールの文面は出さない（区分と公式Xへの案内だけ。文は変化の検知にだけ使う。2026-11-06ドラさん決定）
+    return { ...base, label: rec.label, level: rec.level, headline: "詳しくは公式Xをご確認ください", _sig: rec.headline, updated: `${rec.received.slice(5, 7)}/${rec.received.slice(8, 10)} ${rec.received.slice(11, 16)} 町の防災メール` };
   }
   return { ...base, label: "公式Xで確認", level: "unknown", headline: "町営船の運航情報は公式Xをご確認ください", updated: rec ? `最後の配信 ${rec.received.slice(5, 7)}/${rec.received.slice(8, 10)}` : "" };
 }
