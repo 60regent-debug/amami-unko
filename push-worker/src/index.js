@@ -62,7 +62,7 @@ function alineOffline() {
   return Object.keys(ALINE_SHIPS).map((ship) => ({
     id: "aline-" + ship, operator: ALINE_SHIPS[ship], ship, ports: SHIP_PORTS[ship] || ["名瀬港"],
     route: ALINE_ROUTES[ship] || "", label: "情報を取得できません", level: "unknown",
-    headline: "公式サイトに接続できません。運航状況は船会社へご確認ください", trips: [], updated: "", url: ALINE_URL,
+    headline: "公式サイトから運航状況を読み取れません。船会社へご確認ください", trips: [], updated: "", url: ALINE_URL,
   }));
 }
 
@@ -368,9 +368,17 @@ async function scrapeAll(env) {
       items.push(...got);
     } catch (e) { errors.push(`${name}: ${e.message}`); }
   }
-  // マルエーの公式サイトが読めない回も、欄ごと消さずに「取得できません」と出す（2026-11-12：サイト全体が404になり欄が消えていた）
-  // level は unknown なので通知の比較には入らず、前回の状態は checkAndNotify 側で残る
-  if (!items.some((it) => it.id.startsWith("aline-"))) items.push(...alineOffline());
+  // マルエーの公式サイトが読めない回も、欄ごと消さずに「読み取れません」と出す（2026-11-12：サイト全体が404になり欄が消えていた）
+  // 1隻ずつ補う（一部の船だけ欠けた回も同じ扱い）。補った船は level unknown なので通知の比較には入らない。
+  // 前提：補ったときは必ず errors に1件以上入る（404・0件は上で、一部欠けはここで追加）。checkAndNotify は
+  // errors があるときだけ前回の状態を残すので、この前提が崩れると欠けた船の状態が消え、復旧時の欠航通知が漏れる
+  const found = items.filter((it) => it.id.startsWith("aline-"));
+  const missing = alineOffline().filter((o) => !found.some((it) => it.id === o.id));
+  if (missing.length) {
+    if (found.length) errors.push(`マルエーフェリー・奄美海運: 一部の船を読み取れません（${missing.map((o) => o.ship).join("・")}）`);
+    // いつもどおりマルエー・奄美海運を先頭に並べる
+    items.splice(0, items.length, ...found, ...missing, ...items.filter((it) => !it.id.startsWith("aline-")));
+  }
   await addMarixShips(items, env, warnings);
   let flights = { arrivals: [], departures: [], url: AIRPORT_URL };
   try {

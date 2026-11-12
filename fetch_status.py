@@ -62,6 +62,29 @@ def level_of(label):
     return "caution"  # 条件付運航・スケジュール変更・航路変更など
 
 
+ALINE_ROUTES = {
+    "フェリーあけぼの": "鹿児島 - 名瀬 - 亀徳 - 和泊 - 与論 - 本部 - 那覇",
+    "フェリー波之上": "鹿児島 - 名瀬 - 亀徳 - 和泊 - 与論 - 本部 - 那覇",
+    "フェリーあまみ": "鹿児島 - 喜界 - 名瀬 - 古仁屋 - 平土野",
+    "フェリーきかい": "鹿児島 - 喜界 - 名瀬 - 古仁屋 - 平土野",
+}
+
+
+def aline_offline():
+    return [{
+        "id": "aline-" + ship,
+        "operator": op,
+        "ship": ship,
+        "ports": SHIP_PORTS.get(ship, ["名瀬港"]),
+        "route": ALINE_ROUTES.get(ship, ""),
+        "label": "情報を取得できません",
+        "level": "unknown",
+        "headline": "公式サイトから運航状況を読み取れません。船会社へご確認ください",
+        "updated": "",
+        "url": ALINE_URL,
+    } for ship, op in ALINE_PASSENGER_SHIPS.items()]
+
+
 def parse_aline(page):
     items = []
     for block in re.split(r'<div class="status-archive">', page)[1:]:
@@ -158,6 +181,13 @@ def main():
             sources.extend(items)
         except Exception as e:  # 1社失敗しても他社は出す
             errors.append(f"{name}: {e}")
+    # マルエーが読めない・一部欠けた回も欄を消さない（index.js の alineOffline と同じ考え方・2026-11-12）
+    found = [it for it in sources if it["id"].startswith("aline-")]
+    missing = [it for it in aline_offline() if it["id"] not in {f["id"] for f in found}]
+    if missing:
+        if found:
+            errors.append("マルエーフェリー・奄美海運: 一部の船を読み取れません（" + "・".join(it["ship"] for it in missing) + "）")
+        sources = found + missing + [it for it in sources if not it["id"].startswith("aline-")]
     sources.extend(setouchi_placeholder())
     data = {
         "generated_at": datetime.now(JST).strftime("%Y-%m-%d %H:%M"),

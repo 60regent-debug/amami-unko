@@ -251,6 +251,8 @@
   .flight .bell { grid-column: 2; justify-self: end; font-size: 15px; padding: 7px 10px; }
   .flight.done { opacity: .55; }
   .more-btn { margin-top: 12px; width: 100%; justify-content: center; }
+  .fl-tomorrow { margin: 12px 2px 0; font-size: 15px; line-height: 1.7; color: var(--ink-3); }
+  .fl-tomorrow a { color: var(--ink); font-weight: 700; }
   .soon {
     margin-top: 14px; padding: 18px; border-radius: 14px; border: 1px dashed var(--rule);
     color: var(--ink-2); font-size: 18px; background: var(--paper);
@@ -547,7 +549,7 @@
         ${it.headline && !it.noteInTrip ? `<span class="note-line">${esc(it.headline)}</span>` : ""}
         ${it.updated ? `<span class="upd">${esc(it.updated)} 更新</span>` : ""}
         <span class="actions">
-          ${it.level !== "unknown" || it.id === "setouchi" ? bellButton(keyOf(it)) : ""}
+          ${it.level !== "unknown" || it.id === "setouchi" || targets.includes(keyOf(it)) ? bellButton(keyOf(it)) : ""}
           <a class="btn" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener">公式ページ →</a>
         </span>
       </div></li>`;
@@ -637,11 +639,14 @@
     </div>`;
   }
 
+  // 空港の公式ページは当日分だけなので、明日の便は各航空会社へ案内する（2026-11-12 ドラさん決定＝案B）
+  const TOMORROW_NOTE = `<p class="fl-tomorrow">ここに出るのは今日の便だけです。明日の便は各航空会社でご確認ください：
+    <a href="https://www.jal.co.jp/" target="_blank" rel="noopener">JAL</a>・<a href="https://www.flypeach.com/" target="_blank" rel="noopener">Peach</a>・<a href="https://www.skymark.co.jp/ja/" target="_blank" rel="noopener">スカイマーク</a></p>`;
   function renderFlights() {
     const el = document.getElementById("flights");
     const fl = data && data.flights;
     if (!fl || (!fl.arrivals.length && !fl.departures.length)) {
-      el.innerHTML = `<div class="soon"><b>表示できる便がありません</b><a class="btn" href="https://amami-airport.co.jp/flight/today" target="_blank" rel="noopener">奄美空港の公式ページ →</a></div>`;
+      el.innerHTML = `<div class="soon"><b>表示できる便がありません</b><a class="btn" href="https://amami-airport.co.jp/flight/today" target="_blank" rel="noopener">奄美空港の公式ページ →</a></div>${TOMORROW_NOTE}`;
       return;
     }
     const list = fl[flKind] || [];
@@ -654,7 +659,8 @@
       ${rest.length ? rest.map(flightRow).join("") : `<div class="soon"><img class="bird-s" src="mascot.png" alt="">今日のこれからの便はありません</div>`}
       ${done.length ? (showDone ? done.map(flightRow).join("") : "") +
         `<button class="btn more-btn" id="toggle-done">${showDone ? "終わった便をかくす" : `終わった便も見る（${done.length}便）`}</button>` : ""}
-      <a class="btn more-btn" href="${esc(safeUrl(fl.url))}" target="_blank" rel="noopener">奄美空港の公式ページ →</a>`;
+      <a class="btn more-btn" href="${esc(safeUrl(fl.url))}" target="_blank" rel="noopener">奄美空港の公式ページ →</a>
+      ${TOMORROW_NOTE}`;
     const t = document.getElementById("toggle-done");
     if (t) t.onclick = () => { showDone = !showDone; renderFlights(); };
   }
