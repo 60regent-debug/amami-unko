@@ -54,6 +54,18 @@ function tripsOf(text) {
 const SEE_OFFICIAL = "詳しくは公式ページをご覧ください";
 const ROUTINE_NOTICE = /^通常(?:通り)?運航(?:して|致して|いたして)おります。?$/;
 
+const ALINE_ROUTES = {
+  "フェリーあけぼの": "鹿児島 - 名瀬 - 亀徳 - 和泊 - 与論 - 本部 - 那覇", "フェリー波之上": "鹿児島 - 名瀬 - 亀徳 - 和泊 - 与論 - 本部 - 那覇",
+  "フェリーあまみ": "鹿児島 - 喜界 - 名瀬 - 古仁屋 - 平土野", "フェリーきかい": "鹿児島 - 喜界 - 名瀬 - 古仁屋 - 平土野",
+};
+function alineOffline() {
+  return Object.keys(ALINE_SHIPS).map((ship) => ({
+    id: "aline-" + ship, operator: ALINE_SHIPS[ship], ship, ports: SHIP_PORTS[ship] || ["名瀬港"],
+    route: ALINE_ROUTES[ship] || "", label: "情報を取得できません", level: "unknown",
+    headline: "公式サイトに接続できません。運航状況は船会社へご確認ください", trips: [], updated: "", url: ALINE_URL,
+  }));
+}
+
 function parseAline(page) {
   const items = [];
   for (const block of page.split('<div class="status-archive">').slice(1)) {
@@ -356,6 +368,9 @@ async function scrapeAll(env) {
       items.push(...got);
     } catch (e) { errors.push(`${name}: ${e.message}`); }
   }
+  // マルエーの公式サイトが読めない回も、欄ごと消さずに「取得できません」と出す（2026-11-12：サイト全体が404になり欄が消えていた）
+  // level は unknown なので通知の比較には入らず、前回の状態は checkAndNotify 側で残る
+  if (!items.some((it) => it.id.startsWith("aline-"))) items.push(...alineOffline());
   await addMarixShips(items, env, warnings);
   let flights = { arrivals: [], departures: [], url: AIRPORT_URL };
   try {
