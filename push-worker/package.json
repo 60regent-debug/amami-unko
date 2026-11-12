@@ -6,8 +6,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@block65/webcrypto-web-push": "2.0.0",
-    "postal-mime": "^2.7.6"
+    "@block65/webcrypto-web-push": "2.0.0"
   },
   "devDependencies": {
     "wrangler": "4.151.0"

@@ -4,7 +4,6 @@
 // ・/test        その届け先にテスト通知を送る
 // ・15分おき     各社の公開ページを読んで status を作り、前回から変わった便を、その便を選んだ人に通知
 import { buildPushPayload } from "@block65/webcrypto-web-push";
-import PostalMime from "postal-mime";
 
 const APP_URL = "https://60regent-debug.github.io/amami-unko/";
 const ALLOWED_ORIGINS = ["https://60regent-debug.github.io", "http://127.0.0.1:8765"];
@@ -192,49 +191,12 @@ function parseAirport(page) {
   return out;
 }
 
-// ── 瀬戸内町営（防災情報メール → Gmailの転送 → ここ）──
-const TOWN_SENDER = /@raiden3\.ktaiwork\.jp>?$/i;
-const SHIP_WORDS = /かけろま|せとなみ|定期船|町営船|フェリー/;
-
-function setouchiLevel(t) {
-  if (/欠航|運休/.test(t)) return "cancel";
-  if (/条件付|見合わせ|一部|変更|遅れ|抜港/.test(t)) return "caution";
-  if (/通常|平常|運航します|運航いたします|運航致します|再開/.test(t)) return "normal";
-  return "caution";
-}
-
-async function setouchiItem(env) {
-  const base = { id: "setouchi", operator: "瀬戸内町（フェリーかけろま・せとなみ）", ship: "", ports: ["古仁屋港"], route: "古仁屋 - 瀬相・生間 ほか", url: SETOUCHI_X_URL };
-  const rec = env ? JSON.parse((await env.SUBS.get("setouchi")) || "null") : null;
-  const today = jstNow().slice(0, 10);
-  if (rec && rec.received.slice(0, 10) === today) {
-    // 町の了解が出るまでメールの文面は出さない（区分と公式Xへの案内だけ。文は変化の検知にだけ使う。2026-11-06ドラさん決定）
-    return { ...base, label: rec.label, level: rec.level, headline: "詳しくは公式Xをご確認ください", _sig: rec.headline, updated: `${rec.received.slice(5, 7)}/${rec.received.slice(8, 10)} ${rec.received.slice(11, 16)} 町の防災メール` };
-  }
-  return { ...base, label: "公式Xで確認", level: "unknown", headline: "町営船の運航情報は公式Xをご確認ください", updated: rec ? `最後の配信 ${rec.received.slice(5, 7)}/${rec.received.slice(8, 10)}` : "" };
-}
-
-async function handleEmail(message, env) {
-  const mail = await PostalMime.parse(message.raw);
-  const from = (mail.from && mail.from.address) || message.from || "";
-  // 差出人欄は偽装できるので、配送経路（エンベロープ送信元）も確かめる：町から直接か、Gmailの正式な転送（+caf_=）だけ
-  const envelope = message.from || "";
-  const viaTrusted = /@raiden3\.ktaiwork\.jp$/i.test(envelope) || /\+caf_=unko=tatsunoko-amami\.com@gmail\.com$/i.test(envelope);
-  const fromTown = TOWN_SENDER.test(from) && viaTrusted;
-  const fromGoogle = /@google\.com$/i.test(from);   // Gmailの転送確認メール
-  if (!fromTown && !fromGoogle) { message.setReject("not accepted"); return; }
-  const text = (mail.text || (mail.html || "").replace(/<[^>]+>/g, " ")).normalize("NFKC");
-  const received = jstNow();
-  // 確認用に30日だけ保存（中身を後で確かめるため）
-  await env.SUBS.put(`mail:${Date.now()}`, JSON.stringify({ from, subject: mail.subject || "", text: text.slice(0, 4000), received }), { expirationTtl: 30 * 24 * 3600 });
-  if (!fromTown) return;
-  const body = `${mail.subject || ""}\n${text}`;
-  if (!SHIP_WORDS.test(body)) return;   // 防災メールのうち定期船以外は無視
-  const lines = body.split(/\n/).map((l) => l.trim()).filter((l) => l && SHIP_WORDS.test(l));
-  const headline = (lines.slice(0, 2).join(" ") || (mail.subject || "")).slice(0, 120);
-  const level = setouchiLevel(body);
-  const label = { cancel: "欠航あり", caution: "注意", normal: "運航" }[level];
-  await env.SUBS.put("setouchi", JSON.stringify({ level, label, headline, received }));
+// ── 瀬戸内町営 ──
+// 町営船の運航情報は公式Xのみ（防災メールでの配信は無し＝2026-11-12ドラさんが町に電話で確認）。
+// 10/16に作ったメール受け口（Cloudflare Email Routing → このWorkerのemail処理）は11/12に撤去。欄は公式Xへのリンクだけ
+function setouchiItem() {
+  return { id: "setouchi", operator: "瀬戸内町（フェリーかけろま・せとなみ）", ship: "", ports: ["古仁屋港"], route: "古仁屋 - 瀬相・生間 ほか", url: SETOUCHI_X_URL,
+    label: "公式Xで確認", level: "unknown", headline: "町営船の運航情報は公式Xをご確認ください", updated: "" };
 }
 
 // ── 天気（気象庁の公開データ：奄美地方の予報＋アメダス名瀬の観測） ──
@@ -385,7 +347,7 @@ async function scrapeAll(env) {
     flights = { ...parseAirport(await getPage(AIRPORT_URL)), url: AIRPORT_URL };
     if (!flights.arrivals.length && !flights.departures.length) errors.push("奄美空港: 読み取れた便が0件（ページの形が変わった可能性）");
   } catch (e) { errors.push(`奄美空港: ${e.message}`); }
-  items.push(await setouchiItem(env));
+  items.push(setouchiItem());
   // 天気は取れなくても運航情報の「取得できませんでした」には含めない
   const weather = await fetchWeather();
   return { generated_at: jstNow(), items, flights, weather, errors, warnings };
@@ -551,10 +513,8 @@ async function checkAndNotify(env) {
 
   // 便（通知対象）ごとの「状態の指紋」と、通知文
   const now = {}, text = {};
-  const quiet = new Set();   // 今が「不明・配信なし」の便は、変化しても通知しない
   for (const it of data.items || []) {
-    if (it.level === "unknown" && it.id !== "setouchi") continue;
-    if (it.level === "unknown") quiet.add(keyOf(it));
+    if (it.level === "unknown") continue;
     const k = keyOf(it);
     now[k] = (now[k] ? now[k] + "|" : "") + [it.level, it.label, it._sig ?? it.headline].join("/");
     const name = it.ship || it.operator;
@@ -572,7 +532,7 @@ async function checkAndNotify(env) {
 
   // 一覧が切り替わった回は、日付が動かなくても前日の一覧と比べることになるので飛行機の通知は出さない（2026-11-02 Opus検証）
   const rollover = why === "切り替わり";
-  const changed = prev ? Object.keys(now).filter((k) => !quiet.has(k) && !(rollover && k.includes("@")) && (k in prev || k === "setouchi") && prev[k] !== now[k]) : [];
+  const changed = prev ? Object.keys(now).filter((k) => !(rollover && k.includes("@")) && k in prev && prev[k] !== now[k]) : [];
   const state = { ...now, _flights: flMeta };
   // 読み取りに失敗した回は、その船の前回の状態を残す（消すと次の回に比べられず、欠航の通知が漏れる。2026-11-06 Opus検証）
   if (prev && data.errors.length) {
@@ -603,5 +563,4 @@ async function checkAndNotify(env) {
 export default {
   fetch: (req, env) => handle(req, env),
   scheduled: (event, env, ctx) => ctx.waitUntil(checkAndNotify(env)),
-  email: (message, env) => handleEmail(message, env),
 };

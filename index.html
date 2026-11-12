@@ -549,7 +549,7 @@
         ${it.headline && !it.noteInTrip ? `<span class="note-line">${esc(it.headline)}</span>` : ""}
         ${it.updated ? `<span class="upd">${esc(it.updated)} 更新</span>` : ""}
         <span class="actions">
-          ${it.level !== "unknown" || it.id === "setouchi" || targets.includes(keyOf(it)) ? bellButton(keyOf(it)) : ""}
+          ${it.level !== "unknown" || targets.includes(keyOf(it)) ? bellButton(keyOf(it)) : ""}
           <a class="btn" href="${esc(safeUrl(it.url))}" target="_blank" rel="noopener">公式ページ →</a>
         </span>
       </div></li>`;
