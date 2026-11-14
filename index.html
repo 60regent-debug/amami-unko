@@ -6,6 +6,16 @@
 <title>奄美 運航情報</title>
 <meta name="google-site-verification" content="3HcoYRNuqMkc4pGnY-5h0qfA8U9cJfyY6LiXL87Oc58">
 <meta name="description" content="奄美大島の船と飛行機の運航状況を、港ごとにひと目で。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="奄美 運航情報">
+<meta property="og:title" content="奄美 運航情報">
+<meta property="og:description" content="船と飛行機の欠航を、ひと目で。名瀬港・古仁屋港・奄美空港の運航状況。">
+<meta property="og:url" content="https://60regent-debug.github.io/amami-unko/">
+<meta property="og:image" content="https://60regent-debug.github.io/amami-unko/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#082a47">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -81,6 +91,13 @@
   .hero svg { z-index: 1; }
   /* マスコット（BLUEBIRD AMAMIのロゴの鳥・形は原画のまま） */
   .hero .bird { position: absolute; z-index: 2; right: max(16px, calc(50% - 264px)); bottom: 30px; width: 92px; height: auto; pointer-events: none; }
+  /* ── シェア ── */
+  .hero .btns { display: flex; flex-wrap: wrap; gap: 0 10px; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%);
+    padding: 12px 18px; border-radius: 999px; background: var(--doro); color: var(--paper);
+    font-size: 17px; font-weight: 700; box-shadow: 0 8px 24px -8px rgba(0,0,0,.5); z-index: 50;
+  }
   /* ── ホーム画面に置く方法 ── */
   .a2hs-btn {
     margin-top: 14px; font: inherit; font-size: 17px; font-weight: 700; letter-spacing: .04em;
@@ -272,7 +289,7 @@
     <h1>奄美 運航情報</h1>
     <div class="lead">船と飛行機の欠航を、ひと目で。</div>
     <div class="stamp" id="stamp">読み込み中…</div>
-    <div><button class="a2hs-btn" id="a2hs-open" hidden>📱 ホーム画面に置く方法</button></div>
+    <div class="btns"><button class="a2hs-btn" id="a2hs-open" hidden>📱 ホーム画面に置く方法</button><button class="a2hs-btn" id="share-btn">📤 友だちに教える</button></div>
   </div>
   <img class="bird" src="mascot.png" alt="" aria-hidden="true">
   <!-- 装飾：島影と波（特定の地形・文様の再現ではない） -->
@@ -356,6 +373,7 @@
     <button class="btn close" id="a2hs-close">とじる</button>
   </div>
 </dialog>
+<div class="toast" id="toast" role="status" hidden></div>
 <footer>
   <div class="brand">奄美 運航情報</div>
   各社の公式ページをもとに、運航状況の区分と便の情報を表示しています。寄港地の変更や時刻など詳しい内容は、各便の「公式ページ」から必ずご確認ください。試作版のため、表示が遅れたり誤ったりする場合があります。利用状況を数えるため、端末ごとのランダムな番号だけを送っています（お名前など個人を特定する情報は集めていません）。
@@ -510,6 +528,24 @@
   }
   if (!standalone) document.getElementById("a2hs-open").hidden = false;
   document.getElementById("a2hs-open").onclick = openA2hs;
+  // シェア：スマホは標準の共有画面（LINE・メッセージ等）、使えない端末はURLをコピー
+  const SHARE_URL = "https://60regent-debug.github.io/amami-unko/";
+  const SHARE_TEXT = "奄美の船と飛行機の欠航が、ひと目でわかるページです（無料）";
+  function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.timer); toast.timer = setTimeout(() => t.hidden = true, 3000);
+  }
+  async function copyUrl() {
+    try { await navigator.clipboard.writeText(SHARE_URL); toast("URLをコピーしました"); }
+    catch (e) { window.prompt("このURLをコピーしてください", SHARE_URL); }
+  }
+  document.getElementById("share-btn").onclick = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: "奄美 運航情報", text: SHARE_TEXT, url: SHARE_URL }); }
+      catch (e) { if (e && e.name !== "AbortError") copyUrl(); }
+    } else copyUrl();
+  };
   document.getElementById("a2hs-close").onclick = () => a2hs.close ? a2hs.close() : a2hs.removeAttribute("open");
   a2hs.querySelectorAll("[data-os]").forEach(b => b.onclick = () => a2hsOS(b.dataset.os));
   // Androidの Chrome では、ボタン1つで追加できる
